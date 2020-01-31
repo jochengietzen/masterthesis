@@ -53,9 +53,10 @@ def getUploadHTML():
                     'display': 'flex',
                     'justifyContent': 'flex-end'
                 }),
+                html.Hr(),
                 html.Div(rd[1], id='settings-div', style = {
                     'display': 'flex',
-                    'justifyContent': 'space-between'
+                    'justifyContent': 'space-around'
                 }),
                 html.Div(rd[0], id='output-data-upload'),
                 html.Div(id='hidden-div', style={'display': 'none'})
@@ -91,6 +92,8 @@ def renderData():
         colOutlierDiv = html.Div([html.Label('Outlier column')])
         return [[],[colSortDiv, colIdDiv, colOutlierDiv]]
     ##log('----')
+    saveResults = html.A(html.Button('Refresh'), href='/')
+    saveResultsDiv = html.Div([html.Label('Show updates'), saveResults], id='refresh-button')
     cols = data.bare_dataframe.columns.values
     colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
     colSort.options=[{'label': 'Index', 'value': 'idx'},
@@ -111,7 +114,7 @@ def renderData():
         html.Div([
             html.H5(data.originalfilename),
             dash_table.DataTable(
-                data=data.bare_dataframe.head().to_dict('records'),
+                data=data.bare_dataframe.head(20).to_dict('records'),
                 columns=[{'name': i, 'id': i} for i in data.bare_dataframe.columns]
             ),
             html.Hr(),  # horizontal line
@@ -119,19 +122,25 @@ def renderData():
         [
             colSortDiv,
             colIdDiv,
-            colOutlierDiv
+            colOutlierDiv,
+            saveResultsDiv
         ]
     ]
 
 
-@app.callback([Output('output-data-upload', 'children'), Output('settings-div', 'children')],
-            [
-                Input('upload-data', 'contents'),
-                Input('delete-data', 'n_clicks'),
-                # Input('dd-column-sort', 'value'),
-            ],
-            [State('upload-data', 'filename'),
-            State('upload-data', 'last_modified')])
+
+@app.callback(
+    [
+        Output('output-data-upload', 'children'), 
+        Output('settings-div', 'children')
+    ],
+    [
+        Input('upload-data', 'contents'),
+        Input('delete-data', 'n_clicks'),
+        # Input('dd-column-sort', 'value'),
+    ],
+    [State('upload-data', 'filename'),
+    State('upload-data', 'last_modified')])
 def update_output(list_of_contents, n, list_of_names, list_of_dates):
     ##log('update data output with content:', type(list_of_contents))
     ##log('nclicks', n)
@@ -147,14 +156,18 @@ def update_output(list_of_contents, n, list_of_names, list_of_dates):
     return renderData()
 
 
-@app.callback([Output('delete-data', 'disabled'), Output('delete-data-div', 'children')],
+@app.callback([
+        Output('delete-data', 'disabled'), 
+        Output('delete-data-div', 'children'),
+        Output('upload-data', 'disabled')
+    ],
     [Input('output-data-upload', 'children')])
 def renderDeleteButton(children):
     data = Data.getCurrentFile()
     ##log('button update disabled to', type(data) == type(None))
     deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(type(data) == type(None))]
     ##log(deleteButton)
-    return [type(data) == type(None), [deleteButton]]
+    return [type(data) == type(None), [deleteButton], type(data) != type(None)]
 
 
 @app.callback(Output('hidden-div', 'children'), [

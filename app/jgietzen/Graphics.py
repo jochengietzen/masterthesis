@@ -2,7 +2,7 @@ from jgietzen.Data import Data
 import dash_core_components as dcc
 import dash_html_components as html
 
-from helper import percistency, plotlyConfig
+from helper import percistency, plotly
 
 def renderTimeseries():
     exists, data = Data.existsData()
@@ -21,10 +21,12 @@ def renderTimeseries():
                         x=0,
                         y=1.2
                     ),
+                    **plotly['layout'],
                     **layout,
                     margin=dict(l=40, r=0, t=40, b=30)
                 )}},
                 id = 'timeseries-graph',
-                config = plotlyConfig
+                config = plotly['config'],
+                style={'width': '95vw', 'height': '300px'},
             )
             ]

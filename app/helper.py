@@ -1,6 +1,9 @@
 
 percistency = dict(persistence=True, persistence_type='session')
-plotlyConfig = dict(displaylogo = False)
+plotly = dict(
+    config = dict(displaylogo = False),
+    layout = dict()
+)
 
 def log(*args):
     import sys
