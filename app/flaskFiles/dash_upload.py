@@ -16,7 +16,7 @@ from flaskFiles.app import app, session
 
 from jgietzen.Data import Data
 
-from helper import *
+from helper import log
 
 
 

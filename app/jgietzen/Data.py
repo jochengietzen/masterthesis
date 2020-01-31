@@ -3,7 +3,7 @@ import numpy as np
 import pickle as pkl
 from config import dir_datafiles
 
-from helper import *
+from helper import valueOrAlternative
 from flaskFiles.app import session
 
 class Data:
