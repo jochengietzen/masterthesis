@@ -114,7 +114,11 @@ class Data:
             'marker':{'color':'rgb(55, 83, 109)'},
             'y': ys[[col]].values.flatten()} for col in ys.columns.tolist()]
         print(ret)
-        return ret
+        layout = dict(
+            xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
+            yaxis = dict(title = 'value')
+        )
+        return ret, layout
 
     @staticmethod
     def load(filename):

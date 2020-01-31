@@ -82,15 +82,15 @@ def parse_contents(contents, filename, date):
     return renderData()
 
 def renderData():
-    log('Try to render the data block')
+    ##log('Try to render the data block')
     data = Data.getCurrentFile()
     if type(data) == type(None):
-        log('\tbut there is no data available\n----')
+        ##log('\tbut there is no data available\n----')
         colSortDiv = html.Div([html.Label('Timestamp column')])
         colIdDiv = html.Div([html.Label('Timeseries Id column')])
         colOutlierDiv = html.Div([html.Label('Outlier column')])
         return [[],[colSortDiv, colIdDiv, colOutlierDiv]]
-    log('----')
+    ##log('----')
     cols = data.bare_dataframe.columns.values
     colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
     colSort.options=[{'label': 'Index', 'value': 'idx'},
@@ -133,12 +133,12 @@ def renderData():
             [State('upload-data', 'filename'),
             State('upload-data', 'last_modified')])
 def update_output(list_of_contents, n, list_of_names, list_of_dates):
-    log('update data output with content:', type(list_of_contents))
-    log('nclicks', n)
+    ##log('update data output with content:', type(list_of_contents))
+    ##log('nclicks', n)
     # print(list_of_names, file=sys.stdout)
     # print(list_of_dates, file=sys.stdout)
     if n != None:
-        log('Delete Button clicked')
+        ##log('Delete Button clicked')
         Data.deleteCurrentFile()
         return renderData()
     if list_of_contents is not None:
@@ -151,9 +151,9 @@ def update_output(list_of_contents, n, list_of_names, list_of_dates):
     [Input('output-data-upload', 'children')])
 def renderDeleteButton(children):
     data = Data.getCurrentFile()
-    log('button update disabled to', type(data) == type(None))
+    ##log('button update disabled to', type(data) == type(None))
     deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(type(data) == type(None))]
-    log(deleteButton)
+    ##log(deleteButton)
     return [type(data) == type(None), [deleteButton]]
 
 
@@ -163,8 +163,8 @@ def renderDeleteButton(children):
     Input('dd-column-outlier', 'value'),
 ])
 def updateData(sort, idd, outlier):
-    log('Update data with')
-    log(sort, idd, outlier)
+    ##log('Update data with')
+    ##log(sort, idd, outlier)
     data = Data.getCurrentFile()
     if type(data) == type(None):
         return []

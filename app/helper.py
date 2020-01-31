@@ -1,4 +1,7 @@
 
+percistency = dict(persistence=True, persistence_type='session')
+plotlyConfig = dict(displaylogo = False)
+
 def log(*args):
     import sys
     print(*args, file=sys.stdout)

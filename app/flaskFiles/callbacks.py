@@ -5,7 +5,7 @@ from flaskFiles.dash_upload import getUploadHTML
 import uuid
 
 import sys
-log = lambda content: print(content, file = sys.stdout)
+from helper import log
 
 from jgietzen.Graphics import renderTimeseries
 
@@ -18,7 +18,6 @@ def uid():
 @app.callback(Output('tabs-content', 'children'),
               [Input('tabs', 'value')])
 def render_tab(tab):
-    log(session)
     if tab == 'tab-1':
         return getUploadHTML()
     elif tab == 'tab-2':
