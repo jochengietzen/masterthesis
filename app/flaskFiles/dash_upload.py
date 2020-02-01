@@ -87,21 +87,22 @@ def renderData():
     data = Data.getCurrentFile()
     if type(data) == type(None):
         ##log('\tbut there is no data available\n----')
-        colSortDiv = html.Div([html.Label('Timestamp column')])
         colIdDiv = html.Div([html.Label('Timeseries Id column')])
+        colSortDiv = html.Div([html.Label('Timestamp column')])
         colOutlierDiv = html.Div([html.Label('Outlier column')])
-        return [[],[colSortDiv, colIdDiv, colOutlierDiv]]
+        colRelevantDiv = html.Div([html.Label('Relevant columns to take a look at')])
+        return [[],[colSortDiv, colIdDiv, colOutlierDiv, colRelevantDiv]]
     ##log('----')
     saveResults = html.A(html.Button('Refresh'), href='/')
     saveResultsDiv = html.Div([html.Label('Show updates'), saveResults], id='refresh-button')
-    cols = data.bare_dataframe.columns.values
+    cols = data.raw_columns
     colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
     colSort.options=[{'label': 'Index', 'value': 'idx'},
                     *[{'label': key, 'value': key} for key in cols]]
     colSortDiv = html.Div([html.Label('Timestamp column'), colSort])
 
     colId = dcc.Dropdown(id='dd-column-id', value=data.column_id, style = dropDownStyle)
-    colId.options=[{'label': 'None', 'value': 'None'},
+    colId.options=[{'label': 'None', 'value': 'Null'},
                     *[{'label': key, 'value': key} for key in cols]]
     colIdDiv = html.Div([html.Label('Timeseries Id column'), colId])
 
@@ -110,19 +111,33 @@ def renderData():
                     *[{'label': key, 'value': key} for key in cols]]
     colOutlierDiv = html.Div([html.Label('Outlier column'), colOutlier])
 
+    colRelevant = dcc.Dropdown(
+        id = 'dd-columns-relevant',
+        style = dropDownStyle,
+        multi=True,
+    )  
+    colRelevant.options=[
+            {'label': key, 'value': key} for key in data.relevant_columns_available
+        ]
+    if data.has_relevant_columns:
+        colRelevant.value = data.relevant_columns
+    # log(data.relevant_columns)
+    colRelevantDiv = html.Div([html.Label('Relevant columns'), colRelevant])
+
     return [
         html.Div([
             html.H5(data.originalfilename),
             dash_table.DataTable(
-                data=data.bare_dataframe.head(20).to_dict('records'),
-                columns=[{'name': i, 'id': i} for i in data.bare_dataframe.columns]
+                data=data.data.head(20).to_dict('records'),
+                columns=[{'name': i, 'id': i} for i in data.data.columns]
             ),
             html.Hr(),  # horizontal line
         ]),
         [
-            colSortDiv,
             colIdDiv,
+            colSortDiv,
             colOutlierDiv,
+            colRelevantDiv,
             saveResultsDiv
         ]
     ]
@@ -174,8 +189,9 @@ def renderDeleteButton(children):
     Input('dd-column-sort', 'value'),
     Input('dd-column-id', 'value'),
     Input('dd-column-outlier', 'value'),
+    Input('dd-columns-relevant', 'value'),
 ])
-def updateData(sort, idd, outlier):
+def updateData(sort, idd, outlier, relevant_columns):
     ##log('Update data with')
     ##log(sort, idd, outlier)
     data = Data.getCurrentFile()
@@ -186,6 +202,8 @@ def updateData(sort, idd, outlier):
     if idd != None and idd != 'None':
         data.set_column_id(idd)
     if outlier != None and outlier != 'None':
-        data.column_outlier = outlier
+        data.set_column_outlier(outlier)
+    if relevant_columns != None and relevant_columns != 'None':
+        data.set_relevant_columns(relevant_columns)
     data.save()
     return []

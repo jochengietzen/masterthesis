@@ -3,14 +3,16 @@ import numpy as np
 import pickle as pkl
 from config import dir_datafiles
 
-from helper import valueOrAlternative
+from helper import valueOrAlternative, log, colormap
 from flaskFiles.app import session
 
 class Data:
     __tsID = 'tsid'
     __tsTstmp = 'tststmp'
+    __colOut = 'outlierColumns'
     __idIndex = None
     __kind = 'tskind'
+    __sortCache = None
     internalStore = {}
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
@@ -26,74 +28,115 @@ class Data:
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
-        self.bare_dataframe = data.copy()
+        self.raw_df = data.copy()
+        self.raw_columns = self.raw_df.columns.tolist()
         self.frequency = valueOrAlternative(kwargs, 'frequency')
         self.short_desc = valueOrAlternative(kwargs, 'short_desc')
-        self.column_id = valueOrAlternative(kwargs, 'column_id')
+        self._column_id = valueOrAlternative(kwargs, 'column_id')
         self.windowsize = valueOrAlternative(kwargs, 'windowsize')
-        assert column_sort != None, 'Column sort is required and cannot be None'
-        self.column_sort = column_sort
         assert has_timestamp != None and type(has_timestamp) == bool, 'Has Timestamp is required and needs to be of type boolean'
         self.has_timestamp = has_timestamp
+        assert column_sort != None or self.frequency != None, 'Column sort is required and cannot be None if no frequency is available'
+        self._column_sort = column_sort
         self.__kwargs = kwargs
-        self.__initialize()
         self.filename = valueOrAlternative(kwargs, 'filename', 'random')
         self.originalfilename = valueOrAlternative(kwargs, 'originalfilename')
-        self.column_outlier = valueOrAlternative(kwargs, 'column_outlier')
+        self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
+        self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
         self.internalStore = {}
-        #print(inspectTuple(self))
-        #print(self.bare_dataframe)
-
 
     def set_column_sort(self, column_sort):
-        if self.column_sort == column_sort:
+        if self._column_sort == column_sort:
             return
-        self.bare_dataframe = self.bare_dataframe.drop(columns=[self.column_sort])
-        self.column_sort = column_sort
-        self.__initialize()
+        self._column_sort = column_sort
 
     def set_column_id(self, column_id):
-        if self.column_id == column_id:
+        if self._column_id == column_id:
             return
-        self.bare_dataframe = self.bare_dataframe.drop(columns=[self.column_id])
-        self.column_id = column_id
-        self.__initialize()
-
-    def __initialize(self):
-        if self.column_id == None:
-            self.bare_dataframe[self.__tsID] = [0] * self.bare_dataframe.shape[0]
-            self.column_id = self.__tsID
-        else:
-            self.__tsID = self.column_id
-        tmpBool = False
-        if not self.has_timestamp and self.frequency != None and self.column_sort != 'idx':
-            self.bare_dataframe.drop(columns=[self.column_sort], inplace=True)
-            tmpBool = True
-        if self.column_sort == 'idx' or tmpBool:
-            self.column_sort = self.__tsTstmp if not tmpBool else self.column_sort
-            self.__tsTstmp = self.column_sort if tmpBool else self.__tsTstmp
-            #_mpTMP = 'temporaryTimeColumnSave' + ''.join(np.array(np.random.randint(0, 10, 10), str))
-            #self.bare_dataframe.rename(columns={'time': _mpTMP}, inplace=True)
-            ids, counts = np.unique(self.bare_dataframe[self.column_id].values, return_counts=True)
-            self.bare_dataframe[self.column_sort] = np.nan
-            for idValue, count in zip(ids, counts):
-                #print(self.bare_dataframe.loc[np.where(idValue == self.bare_dataframe[self.column_id])][[self.__tsTstmp]])
-                #print(np.arange(0, count, 1) if self.frequency == None else np.arange(0, count/self.frequency, 1/self.frequency))
-                self.bare_dataframe.iloc[np.where(idValue == self.bare_dataframe[self.column_id])[0], np.where(self.column_sort == self.bare_dataframe.columns)[0]] = np.arange(0, count, 1) if self.frequency == None else np.arange(0, count/self.frequency, 1/self.frequency)
-        else: 
-            self.__tsTstmp = self.column_sort
-        self.__reorderData()
+        self._column_id = column_id
     
-    def __reorderData(self):
-        idxes = [self.column_id, self.column_sort]
-        cols = idxes + [x for x in self.bare_dataframe.columns.tolist() if x not in idxes]
-        self.bare_dataframe = self.bare_dataframe.reindex(columns=cols)
+    def set_column_outlier(self, column_outlier):
+        if self._column_outlier == column_outlier:
+            return
+        self._column_outlier = column_outlier
 
+    def set_relevant_columns(self, relevant_columns):
+        if self._relevantColumns == relevant_columns:
+            return
+        self._relevantColumns = relevant_columns
+    
+    @property
+    def indexingColumns(self):
+        return [col for col in [self.column_sort, self.column_id, self.column_outlier] if col != None and col in self.raw_columns]
 
     @property
-    def outlier(self):
-        return self.bare_dataframe[[self.column_outlier]] if self.column_outlier != None else None
+    def relevant_columns_available(self):
+        specialCols = self.indexingColumns
+        return [col for col in self.raw_columns if col not in specialCols]
 
+    @property
+    def sort_is_timestamp(self):
+        return self.has_timestamp or self._column_sort == None and self.frequency != None
+    
+    @property
+    def column_sort(self):
+        if self._column_sort == 'idx':
+            return self.__tsTstmp
+        else:
+            return self._column_sort if self._column_sort != None and self._column_sort in self.raw_columns else self.__tsTstmp
+    
+    @property
+    def column_id(self):
+        return self.__tsID if self._column_id == None or self._column_id not in self.raw_columns else self._column_id
+
+    @property
+    def column_outlier(self):
+        return self._column_outlier if self._column_outlier != None and self._column_outlier in self.raw_columns else self.__colOut
+    
+    @property
+    def has_relevant_columns(self):
+        return self._relevantColumns != None
+
+    @property
+    def relevant_columns(self):
+        specialCols = self.indexingColumns
+        rel = [col for col in self._relevantColumns if col in self.raw_columns and col not in specialCols] if self._relevantColumns != None else self.raw_df.drop(columns=specialCols).columns.tolist()
+        return rel
+    
+    @property
+    def has_outlier(self):
+        return self.column_outlier in self.raw_columns
+    
+    @property
+    def outlier(self):
+        return self.raw_df[self.column_outlier].values.flatten() if self.has_outlier else np.repeat(np.nan, self.raw_df.shape[0])
+    
+    @property
+    def dataWithOutlier(self):
+        df = self.data
+        column_outlier = self.column_outlier
+        df[column_outlier] = self.outlier
+        return df
+    
+    @property
+    def data(self):
+        df = pd.DataFrame()
+        column_id = self.column_id
+        df[column_id] = [0] * self.raw_df.shape[0] if column_id not in self.raw_columns else self.raw_df[[column_id]].values.flatten()
+        column_sort = self.column_sort
+        if column_sort == self.__tsTstmp:
+            ids, counts = np.unique(df[column_id].values, return_counts=True)
+            df[column_sort] = np.nan
+            for idValue, count in zip(ids, counts):
+                df.iloc[np.where(idValue == df[column_id])[0], np.where(column_sort == df.columns)[0]] = np.arange(0, count, 1) if self.frequency == None else np.arange(0, count/self.frequency, 1/self.frequency)
+        else:
+            df[column_sort] = self.raw_df[column_sort].values.flatten()
+        relevant_columns = self.relevant_columns
+        for col in relevant_columns:
+            if col in self.raw_columns:
+                df[col] = self.raw_df[col].values.flatten()
+        return df
+    
 
     def save(self):
         from os.path import join
@@ -108,12 +151,14 @@ class Data:
         del self
 
     def plotdataTimeseries(self):
-        x = self.bare_dataframe[[self.column_sort]].values.flatten()
-        ys = self.bare_dataframe.drop(columns=[self.column_sort, self.column_id, self.column_outlier])
+        data = self.data
+        x = data[[self.column_sort]].values.flatten()
+        log(data)
+        log(self.relevant_columns)
+        ys = data[self.relevant_columns]
         ret = [{'x': x, 'name': col,
-            'marker':{'color':'rgb(55, 83, 109)'},
-            'y': ys[[col]].values.flatten()} for col in ys.columns.tolist()]
-        # print(ret)
+            'marker':{'color': colormap(ind)},
+            'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
         layout = dict(
             xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
             yaxis = dict(title = 'value')
