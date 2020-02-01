@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 import pickle as pkl
 from config import dir_datafiles
+import plotly_express as px
+import plotly.graph_objects as go
 
-from helper import valueOrAlternative, log, colormap
+from helper import valueOrAlternative, log, colormap, plotlyConf
 from flaskFiles.app import session
 
 class Data:
@@ -150,20 +152,6 @@ class Data:
             remove(file)
         del self
 
-    def plotdataTimeseries(self):
-        data = self.data
-        x = data[[self.column_sort]].values.flatten()
-        log(data)
-        log(self.relevant_columns)
-        ys = data[self.relevant_columns]
-        ret = [{'x': x, 'name': col,
-            'marker':{'color': colormap(ind)},
-            'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
-        layout = dict(
-            xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
-            yaxis = dict(title = 'value')
-        )
-        return ret, layout
 
     @staticmethod
     def load(filename):
@@ -213,3 +201,40 @@ class Data:
         data = Data.getCurrentFile()
         if type(data) != type(None):
             data.delete()
+    
+    def plotdataTimeseries(self):
+        data = self.data
+        x = data[[self.column_sort]].values.flatten()
+        ys = data[self.relevant_columns]
+        ret = [{'x': x, 'name': col,
+            'marker':{'color': colormap(ind)},
+            'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
+        layout = dict(
+            xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
+            yaxis = dict(title = 'value')
+        )
+        return ret, layout
+    
+    def getOutlierPlot(self):
+        data = self.data
+        log(self._column_sort)
+        layout = dict(
+            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            # yaxis = dict(title = 'value')
+        )
+        fig = go.Figure(**{'layout': dict(
+                    title=dict(text='Timeseries data',
+                    x = .5
+                    ),
+                    showlegend=True,
+                    legend=dict(
+                        x=1,
+                        y=0
+                    ),
+                    **plotlyConf['layout'],
+                    **layout,
+                    margin=dict(l=40, r=0, t=40, b=30)
+                )})
+        for ind, col in enumerate(self.relevant_columns):
+            fig.add_trace(go.Scatter(name=col , x=data[[self.column_sort]].values.flatten(), y=data[[col]].values.flatten(), marker= dict(color=colormap(ind))))
+        return fig

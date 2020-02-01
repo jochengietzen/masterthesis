@@ -2,11 +2,12 @@ from jgietzen.Data import Data
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
+import plotly.graph_objects as go
 
 
-from helper import percistency, plotlyConf, log
+from helper import percistency, plotlyConf, log, colormap
 
-def renderTimeseries():
+def renderTimeseries2():
     exists, data = Data.existsData()
     if not exists:
         return []
@@ -33,14 +34,14 @@ def renderTimeseries():
             )
             ]
 
-def renderTimeseries2():
+def renderTimeseries():
     exists, data = Data.existsData()
     if not exists:
         return []
     else:
-        dat, layout = data.plotdataTimeseries()
-        log(data.df)
-        fig = px.area(data.df, x=data.column_sort, y="y", color=data.column_outlier)
+        # dat, layout = data.plotdataTimeseries()
+        log(data.data)
+        fig = data.getOutlierPlot()
         return [
             dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
