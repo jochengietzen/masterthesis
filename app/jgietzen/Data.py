@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import pickle as pkl
 from config import dir_datafiles
+import dash_core_components as dcc
+import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
 
@@ -68,12 +70,27 @@ class Data:
         self._relevantColumns = relevant_columns
     
     @property
-    def indexingColumns(self):
-        return [col for col in [self.column_sort, self.column_id, self.column_outlier] if col != None and col in self.raw_columns]
+    def tsTstmp(self):
+        return self.__tsTstmp
+
+    @property
+    def indexColumns(self):
+        return [col for col in [self.column_sort, self.column_id] if col != None and col in self.raw_columns]
+    
+    @property
+    def indexAndOutlierColumns(self):
+        return [col for col in [self.column_sort, self.column_id, *self.column_outlier] if col != None and col in self.raw_columns]
 
     @property
     def relevant_columns_available(self):
-        specialCols = self.indexingColumns
+        specialCols = self.indexAndOutlierColumns
+        return [col for col in self.raw_columns if col not in specialCols]
+
+    @property
+    def outlier_columns_available(self):
+        specialCols = self.indexColumns
+        if self._relevantColumns != None and len(self._relevantColumns) > 0:
+            specialCols += self.relevant_columns
         return [col for col in self.raw_columns if col not in specialCols]
 
     @property
@@ -93,7 +110,7 @@ class Data:
 
     @property
     def column_outlier(self):
-        return self._column_outlier if self._column_outlier != None and self._column_outlier in self.raw_columns else self.__colOut
+        return [col for col in (self._column_outlier if type(self._column_outlier) == list else [self._column_outlier]) if col in self.raw_columns] if type(self._column_outlier) in [list] else []
     
     @property
     def has_relevant_columns(self):
@@ -101,23 +118,29 @@ class Data:
 
     @property
     def relevant_columns(self):
-        specialCols = self.indexingColumns
+        specialCols = self.indexAndOutlierColumns
         rel = [col for col in self._relevantColumns if col in self.raw_columns and col not in specialCols] if self._relevantColumns != None else self.raw_df.drop(columns=specialCols).columns.tolist()
         return rel
     
     @property
     def has_outlier(self):
-        return self.column_outlier in self.raw_columns
+        return len(self.column_outlier) > 0
     
     @property
     def outlier(self):
-        return self.raw_df[self.column_outlier].values.flatten() if self.has_outlier else np.repeat(np.nan, self.raw_df.shape[0])
+        dic = dict()
+        for col in self.column_outlier:
+            if col in self.raw_columns:
+                dic[col] = self.raw_df[col].values.flatten()
+        return dic
     
     @property
     def dataWithOutlier(self):
         df = self.data
-        column_outlier = self.column_outlier
-        df[column_outlier] = self.outlier
+        if self.has_outlier:
+            column_outlier = self.column_outlier
+            for col in column_outlier:
+                df[col] = self.outlier[col]
         return df
     
     @property
@@ -202,22 +225,28 @@ class Data:
         if type(data) != type(None):
             data.delete()
     
-    def plotdataTimeseries(self):
-        data = self.data
-        x = data[[self.column_sort]].values.flatten()
-        ys = data[self.relevant_columns]
-        ret = [{'x': x, 'name': col,
-            'marker':{'color': colormap(ind)},
-            'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
-        layout = dict(
-            xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
-            yaxis = dict(title = 'value')
-        )
-        return ret, layout
+    # def plotdataTimeseries(self):
+    #     data = self.data
+    #     x = data[[self.column_sort]].values.flatten()
+    #     ys = data[self.relevant_columns]
+    #     ret = [{'x': x, 'name': col,
+    #         'marker':{'color': colormap(ind)},
+    #         'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
+    #     layout = dict(
+    #         xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
+    #         yaxis = dict(title = 'value')
+    #     )
+    #     return ret, layout
     
-    def getOutlierPlot(self):
+    def plotdataTimeseriesGraph(self):
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['style'],
+                figure = self.plotdataTimeseriesFigure()
+            )
+
+    def plotdataTimeseriesFigure(self):
         data = self.data
-        log(self._column_sort)
         layout = dict(
             xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
             # yaxis = dict(title = 'value')

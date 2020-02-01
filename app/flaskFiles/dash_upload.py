@@ -97,20 +97,23 @@ def renderData():
     saveResultsDiv = html.Div([html.Label('Show updates'), saveResults], id='refresh-button')
     cols = data.raw_columns
     colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
-    colSort.options=[{'label': 'Index', 'value': 'idx'},
+    colSort.options=[{'label': 'Index', 'value': data.tsTstmp},
                     *[{'label': key, 'value': key} for key in cols]]
     colSortDiv = html.Div([html.Label('Timestamp column'), colSort])
 
     colId = dcc.Dropdown(id='dd-column-id', value=data.column_id, style = dropDownStyle)
-    colId.options=[{'label': 'None', 'value': 'Null'},
+    colId.options=[
+                    {'label': 'None', 'value': 'Null'},
                     *[{'label': key, 'value': key} for key in cols]]
     colIdDiv = html.Div([html.Label('Timeseries Id column'), colId])
 
-    colOutlier = dcc.Dropdown(id='dd-column-outlier', value=data.column_outlier, style = dropDownStyle)
-    colOutlier.options=[{'label': 'None', 'value': 'None'},
-                    *[{'label': key, 'value': key} for key in cols]]
+    colOutlier = dcc.Dropdown(id='dd-column-outlier', multi=True, style = dropDownStyle)
+    colOutlier.options=[
+        {'label': key, 'value': key} for key in data.outlier_columns_available
+        ]
     colOutlierDiv = html.Div([html.Label('Outlier column'), colOutlier])
-
+    if data.has_outlier:
+        colOutlier.value = data.column_outlier
     colRelevant = dcc.Dropdown(
         id = 'dd-columns-relevant',
         style = dropDownStyle,
@@ -124,12 +127,13 @@ def renderData():
     # log(data.relevant_columns)
     colRelevantDiv = html.Div([html.Label('Relevant columns'), colRelevant])
 
+    tableData = data.dataWithOutlier
     return [
         html.Div([
             html.H5(data.originalfilename),
             dash_table.DataTable(
-                data=data.data.head(20).to_dict('records'),
-                columns=[{'name': i, 'id': i} for i in data.data.columns]
+                data=tableData.head(20).to_dict('records'),
+                columns=[{'name': i, 'id': i} for i in tableData.columns]
             ),
             html.Hr(),  # horizontal line
         ]),

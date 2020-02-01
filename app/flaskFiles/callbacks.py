@@ -7,7 +7,7 @@ import uuid
 import sys
 from helper import log
 
-from jgietzen.Graphics import renderTimeseries, renderTimeseries2
+from jgietzen.Graphics import renderTimeseries
 
 @app.server.before_request
 def uid():

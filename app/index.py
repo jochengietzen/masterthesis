@@ -5,7 +5,7 @@ from dash.dependencies import Input, Output
 from flaskFiles.app import app
 from flaskFiles.layouts import tabs, colors
 import flaskFiles.callbacks
-
+from helper import log
 # from helper import *
 
 app.layout = html.Div([
