@@ -6,14 +6,18 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-from helper import valueOrAlternative, log, colormap, plotlyConf
+import colorlover as cl
+
+from helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff
 from flaskFiles.app import session
 
 class Data:
     __tsID = 'tsid'
     __tsTstmp = 'tststmp'
     __colOut = 'outlierColumns'
+    __valueOfAnOutlier = 1
     __idIndex = None
     __kind = 'tskind'
     __sortCache = None
@@ -242,15 +246,102 @@ class Data:
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
                 style= plotlyConf['style'],
-                figure = self.plotdataTimeseriesFigure()
+                figure = self.plotdataTimeseriesOutlierGraph()
+                # figure = self.plotdataTimeseriesFigure()
             )
+    
+    def plotdataTimeseriesOutlierGraph(self):
+        rows, cols = 2, 1
+        fig = make_subplots(rows=rows, cols=cols, specs=[[{"secondary_y": True}] for r in range(rows) for col in range(cols)])
+        fig.layout = go.Layout(title=dict(text='Timeseries data with outliers', x = .5),
+                                hovermode='x')
+        ts = self.plotdataTimeseriesFigure()
+        [fig.append_trace(ts.data[i], row=1, col = 1) for i in range(len(ts.data))]
+        fig.update_layout(ts.layout)
+        data = self.data[self.relevant_columns]
+        mima = dict(minValue=data.min().min(), maxValue=data.max().max())
+        outlierRectangles = self.plotdataOutlierRectangleFigure(**mima)
+        [fig.add_trace(outlierRectangles.data[i], row=1, col = 1, secondary_y=True) for i in range(len(outlierRectangles.data))]
+        fig.update_layout(outlierRectangles.layout)
+        fig.update_yaxes(secondary_y=True, row=1, col=1, tickvals=[0,1,2])
+        return fig
+
+    def plotdataOutlierRectangleFigure(self, minValue = -1, maxValue = -1):
+        data = self.dataWithOutlier
+        layout = dict(
+            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            hovermode = 'x'
+        )
+        layout = dict(
+                    title=dict(text='Outlier Rectangles',
+                    x = .5
+                    ),
+                    showlegend=True,
+                    legend=dict(
+                        x=1,
+                        y=0,
+                        bgcolor = 'rgba(0,0,0,0)'
+                    ),
+                    **plotlyConf['layout'],
+                    **layout,
+                    margin=dict(l=40, r=0, t=40, b=30),
+                    barmode='stack',
+                    yaxis = dict(
+                        side = 'left',
+                        ticks= "", 
+                        # autotick= True, 
+                        showgrid= False, 
+                        showline= True, 
+                        zeroline= False, 
+                        autorange= True, 
+                        showticklabels= True
+                    ),
+                    yaxis2 = dict(
+                        side='right',
+                        ticks= "outside",
+                        rangemode = 'normal',
+                        autorange = True,
+                        # autotick= True, 
+                        # showgrid= False, 
+                        showline= False, 
+                        zeroline= True, 
+                        overlaying= "y"
+                    )
+                )
+        fig = go.Figure(**{'layout': layout})
+        x = data[[self.column_sort]].values.flatten()
+        scales = [
+            cl.scales[key]['seq']['Reds'] for key in cl.scales if len(cl.scales[key]['seq']) > 0
+            ]
+        cm = scales[np.argmin([abs(len(s) - len(self.column_outlier)) for s in scales])]
+        for ind, col in enumerate(self.column_outlier):
+            current = data[[col]].values.flatten()
+            color = cm[ind % len(cm)]
+            colora = color.replace('rgb','rgba').replace(')', ',.4)')
+            # log(color)
+            # log(x[block[0]], x[block[1]-1])
+            # log(minValue, maxValue)
+            fig.add_trace(go.Bar(
+                name=col,
+                x=x[np.where(current != 0)[0]],
+                y=current[np.where(current != 0)[0]],
+                marker=dict(
+                    line=dict(
+                        color=colora,
+                        width=2
+                    ),
+                    color=colora
+                ),
+                yaxis='y2'
+            ))
+        fig.update_shapes(dict(xref='x', yref='y'))
+        return fig
 
     def plotdataTimeseriesFigure(self):
         data = self.data
         layout = dict(
             xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
             hovermode = 'x'
-            # yaxis = dict(title = 'value')
         )
         fig = go.Figure(**{'layout': dict(
                     title=dict(text='Timeseries data',

@@ -1,3 +1,5 @@
+import numpy as np
+
 
 percistency = dict(persistence=True, persistence_type='session')
 plotlyConf = dict(
@@ -30,3 +32,11 @@ def valueOrAlternative(kwargs, key, alternative=None):
 
 def keyValuesFilter(dic, keys):
     return {key: dic[key] for key in keys if key in list(dic.keys())}
+
+
+def consecutiveDiff(x, checkNum = None, extended = True):
+    tmp = np.array([0] + list(np.where(np.ediff1d(((x == checkNum) if checkNum != None else x).astype(int)) != 0)[0] + 1) + [len(x)])
+    tmp = zip(tmp, tmp[1:])
+    if extended:
+        tmp = [((t[0], t[1]), (x[t[0]], t[1] - t[0])) for t in tmp]
+    return tmp
