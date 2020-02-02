@@ -1,13 +1,13 @@
 from dash.dependencies import Input, Output
 
-from flaskFiles.app import app, session
-from flaskFiles.dash_upload import getUploadHTML
+from webapp.flaskFiles.applicationProvider import app, session
+from webapp.flaskFiles.dash_upload import getUploadHTML
 import uuid
 
 import sys
-from helper import log
+from webapp.helper import log
 
-from jgietzen.Graphics import renderTimeseries
+from webapp.jgietzen.Graphics import renderTimeseries
 
 @app.server.before_request
 def uid():

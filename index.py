@@ -2,9 +2,9 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from flaskFiles.app import app
-from flaskFiles.layouts import tabs, colors
-import flaskFiles.callbacks
+from webapp.flaskFiles.applicationProvider import app, server
+from webapp.flaskFiles.layouts import tabs, colors
+import webapp.flaskFiles.callbacks
 
 app.layout = html.Div([
     tabs

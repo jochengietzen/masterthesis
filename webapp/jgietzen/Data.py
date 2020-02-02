@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle as pkl
-from config import dir_datafiles
+from webapp.config import dir_datafiles
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
@@ -10,8 +10,8 @@ from plotly.subplots import make_subplots
 
 import colorlover as cl
 
-from helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff
-from flaskFiles.app import session
+from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff
+from webapp.flaskFiles.applicationProvider import session
 
 class Data:
     __tsID = 'tsid'
@@ -192,7 +192,6 @@ class Data:
     def getCurrentFile():
         data = Data.load(session.get('uid'))
         if type(data) == type(None):
-            # log('No data file available yet')
             return None
         return data
     
@@ -229,19 +228,6 @@ class Data:
         if type(data) != type(None):
             data.delete()
     
-    # def plotdataTimeseries(self):
-    #     data = self.data
-    #     x = data[[self.column_sort]].values.flatten()
-    #     ys = data[self.relevant_columns]
-    #     ret = [{'x': x, 'name': col,
-    #         'marker':{'color': colormap(ind)},
-    #         'y': ys[[col]].values.flatten()} for ind, col in enumerate(ys.columns.tolist())]
-    #     layout = dict(
-    #         xaxis = dict(title = 'time' if self.has_timestamp == True else 'index'),
-    #         yaxis = dict(title = 'value')
-    #     )
-    #     return ret, layout
-    
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -261,9 +247,13 @@ class Data:
         data = self.data[self.relevant_columns]
         mima = dict(minValue=data.min().min(), maxValue=data.max().max())
         outlierRectangles = self.plotdataOutlierRectangleFigure(**mima)
+        sums = self.dataWithOutlier[self.column_outlier].sum(axis=1)
+        ticks = sums.max() if len(self.column_outlier) > 1 else 0
+        ticks = list(range(ticks))
         [fig.add_trace(outlierRectangles.data[i], row=1, col = 1, secondary_y=True) for i in range(len(outlierRectangles.data))]
         fig.update_layout(outlierRectangles.layout)
-        fig.update_yaxes(secondary_y=True, row=1, col=1, tickvals=[0,1,2])
+        fig.update_yaxes(secondary_y=True, row=1, col=1, tickvals=ticks)
+        # fig.update_yaxes(secondary_y=True, row=1, col=1)
         return fig
 
     def plotdataOutlierRectangleFigure(self, minValue = -1, maxValue = -1):
@@ -318,9 +308,6 @@ class Data:
             current = data[[col]].values.flatten()
             color = cm[ind % len(cm)]
             colora = color.replace('rgb','rgba').replace(')', ',.4)')
-            # log(color)
-            # log(x[block[0]], x[block[1]-1])
-            # log(minValue, maxValue)
             fig.add_trace(go.Bar(
                 name=col,
                 x=x[np.where(current != 0)[0]],

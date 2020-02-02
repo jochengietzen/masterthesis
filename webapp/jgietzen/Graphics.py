@@ -1,11 +1,11 @@
-from jgietzen.Data import Data
+from webapp.jgietzen.Data import Data
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
 
 
-from helper import percistency, plotlyConf, log, colormap
+from webapp.helper import percistency, plotlyConf, log, colormap
 
 # def renderTimeseries2():
 #     exists, data = Data.existsData()

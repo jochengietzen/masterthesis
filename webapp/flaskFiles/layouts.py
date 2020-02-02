@@ -1,7 +1,7 @@
 import dash_core_components as dcc
 import dash_html_components as html
 
-from flaskFiles.app import app as app
+from webapp.flaskFiles.applicationProvider import app as app
 
 th = 25
 tab_styles = {

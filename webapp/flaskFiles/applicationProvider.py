@@ -4,7 +4,7 @@ import dash_html_components as html
 from flask import Flask, session
 from flask_session import Session
 from datetime import timedelta
-from config import dir_sessions
+from webapp.config import dir_sessions
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 

@@ -12,11 +12,11 @@ import dash_table
 
 import pandas as pd
 import pickle
-from flaskFiles.app import app, session
+from webapp.flaskFiles.applicationProvider import app, session
 
-from jgietzen.Data import Data
+from webapp.jgietzen.Data import Data
 
-from helper import log
+from webapp.helper import log
 
 
 
@@ -93,7 +93,7 @@ def renderData():
         colRelevantDiv = html.Div([html.Label('Relevant columns to take a look at')])
         return [[],[colSortDiv, colIdDiv, colOutlierDiv, colRelevantDiv]]
     ##log('----')
-    saveResults = html.A(html.Button('Refresh'), href='/')
+    saveResults = html.A('Refresh', href='/')
     saveResultsDiv = html.Div([html.Label('Show updates'), saveResults], id='refresh-button')
     cols = data.raw_columns
     colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
