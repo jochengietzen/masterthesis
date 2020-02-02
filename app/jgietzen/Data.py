@@ -249,6 +249,7 @@ class Data:
         data = self.data
         layout = dict(
             xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            hovermode = 'x'
             # yaxis = dict(title = 'value')
         )
         fig = go.Figure(**{'layout': dict(
@@ -262,7 +263,7 @@ class Data:
                     ),
                     **plotlyConf['layout'],
                     **layout,
-                    margin=dict(l=40, r=0, t=40, b=30)
+                    margin=dict(l=40, r=0, t=40, b=30),
                 )})
         for ind, col in enumerate(self.relevant_columns):
             fig.add_trace(go.Scatter(name=col , x=data[[self.column_sort]].values.flatten(), y=data[[col]].values.flatten(), marker= dict(color=colormap(ind))))
