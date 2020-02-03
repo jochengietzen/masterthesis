@@ -7,7 +7,7 @@ import uuid
 import sys
 from webapp.helper import log
 
-from webapp.jgietzen.Graphics import renderTimeseries
+from webapp.jgietzen.Graphics import renderTimeseries, renderTest
 
 @app.server.before_request
 def uid():
@@ -22,6 +22,8 @@ def render_tab(tab):
         return getUploadHTML()
     elif tab == 'tab-2':
         return renderTimeseries()
+    elif tab == 'tab-3':
+        return renderTest()
 
 
 # @app.server.route('/visits-counter/')
