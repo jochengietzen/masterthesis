@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import math
 
 
 percistency = dict(persistence=True, persistence_type='session')
@@ -40,3 +42,46 @@ def consecutiveDiff(x, checkNum = None, extended = True):
     if extended:
         tmp = [((t[0], t[1]), (x[t[0]], t[1] - t[0])) for t in tmp]
     return tmp
+
+
+def adjusted_window(i, maxval, max_timeshift):
+    negWin = math.floor(max_timeshift/2)
+    posWin = math.ceil(max_timeshift/2)
+    lower = max(0, i - negWin)
+    upper = min(maxval, i + posWin)
+    adjust = (max_timeshift - (upper-lower))
+    if adjust > 0 and lower > 0:
+        lower = max(0, lower - adjust)
+    elif adjust > 0 and upper < maxval:
+        upper = min(maxval, upper + adjust)
+    return (lower, upper)
+
+def slide_time_series(toslide, column_id, column_sort, rolling_direction = 1, max_timeshift = None, column_kind=None):
+    ids = toslide[column_id].unique()
+    srld = []
+    for idd in ids:
+        subtoslide = toslide[toslide[column_id] == idd].copy()
+        subtoslide.sort_values(by=column_sort, inplace=True)
+        subtoslide.reset_index(drop=True, inplace=True)
+        #subslid = pd.DataFrame({col: [] for col in subtoslide.columns.to_list()})
+        max_timeshift = max_timeshift if max_timeshift != None else subtoslide.shape[0]
+        #windowborders = [(i, min(i+max_timeshift, subtoslide.shape[0])) for i in range(subtoslide.shape[0])]
+        windowborders = [adjusted_window(i, maxval=subtoslide.shape[0], max_timeshift=max_timeshift) for i in range(subtoslide.shape[0])] 
+        if rolling_direction < 0:
+            windowborders = [(i, max(i-max_timeshift, 0)) for i in range(subtoslide.shape[0], 0, -1)]
+        ssrld = []
+        for tIndex, (b0, b1) in enumerate(windowborders):
+            subsubslid = subtoslide.iloc[b0:b1, [i for i, col in enumerate(subtoslide.columns.to_list()) if col != column_id]]
+            subsubslid[column_id] = subtoslide.loc[tIndex, column_sort]
+            ssrld.append(subsubslid)
+        subslid = pd.concat(ssrld)
+        if column_kind != None and column_kind != column_id:
+            subslid[column_kind] = idd
+        elif len(ids) > 1:
+            column_kind = 'newID'
+            subslid['newID'] = idd
+        subslid = subslid.reindex(columns=[column_id, column_sort] + [col for col in subslid.columns.to_list() if col not in [column_id, column_sort]])
+        subslid.reset_index(drop = True, inplace=True)
+        srld.append(subslid)
+    subslid = pd.concat(srld)
+    return subslid

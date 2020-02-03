@@ -34,6 +34,27 @@ from webapp.helper import percistency, plotlyConf, log, colormap
 #             )
 #             ]
 
+def renderTest():
+    import dash_table
+    exists, data = Data.existsData()
+    if not exists:
+        return []
+    else:
+        log('lets extract')
+        slid = data.extract_features(windowsize=5, roll=True)
+        log('extracted')
+        # slid = data.slide(windowsize=5)
+        return [
+            html.Div([
+            html.H5(data.originalfilename),
+            dash_table.DataTable(
+                data=slid.head(20).to_dict('records'),
+                columns=[{'name': i, 'id': i} for i in slid.columns]
+            ),
+            html.Hr(),  # horizontal line
+            ])
+        ]
+
 def renderTimeseries():
     exists, data = Data.existsData()
     if not exists:

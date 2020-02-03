@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle as pkl
+import tsfresh
 from webapp.config import dir_datafiles
 import dash_core_components as dcc
 import dash_html_components as html
@@ -10,7 +11,7 @@ from plotly.subplots import make_subplots
 
 import colorlover as cl
 
-from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff
+from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series
 from webapp.flaskFiles.applicationProvider import session
 
 class Data:
@@ -22,6 +23,7 @@ class Data:
     __kind = 'tskind'
     __sortCache = None
     internalStore = {}
+    slidedData = {}
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
         '''
@@ -41,7 +43,6 @@ class Data:
         self.frequency = valueOrAlternative(kwargs, 'frequency')
         self.short_desc = valueOrAlternative(kwargs, 'short_desc')
         self._column_id = valueOrAlternative(kwargs, 'column_id')
-        self.windowsize = valueOrAlternative(kwargs, 'windowsize')
         assert has_timestamp != None and type(has_timestamp) == bool, 'Has Timestamp is required and needs to be of type boolean'
         self.has_timestamp = has_timestamp
         assert column_sort != None or self.frequency != None, 'Column sort is required and cannot be None if no frequency is available'
@@ -76,10 +77,19 @@ class Data:
     @property
     def tsTstmp(self):
         return self.__tsTstmp
+    
+    @property
+    def timestamps(self):
+        return self.data[[self.column_sort]].values.flatten()
+
+    @property
+    def ids(self):
+        return self.data[[self.column_id]].values.flatten()
 
     @property
     def indexColumns(self):
-        return [col for col in [self.column_sort, self.column_id] if col != None and col in self.raw_columns]
+        return [col for col in [self.column_id, self.column_sort] if col != None]
+        # return [col for col in [self.column_sort, self.column_id] if col != None and col in self.raw_columns]
     
     @property
     def indexAndOutlierColumns(self):
@@ -166,6 +176,20 @@ class Data:
                 df[col] = self.raw_df[col].values.flatten()
         return df
     
+    @property
+    def extract_features_settings(self):
+        return dict(
+            column_id=self.column_id, column_sort=self.column_sort,
+            # column_kind=self.column_id,
+            default_fc_parameters={'maximum':None, 'minimum':None}
+        )
+
+    def getRolledTimestamps(self, windowsize):
+        return self.timestamps[windowsize // 2::windowsize]
+
+    def reduceSlidedToRolled(self, slided, windowsize):
+        tstmps = self.getRolledTimestamps(windowsize)
+        return slided.loc[[i in tstmps for i in slided[[self.column_id]].values.flatten()], :]
 
     def save(self):
         from os.path import join
@@ -180,6 +204,58 @@ class Data:
         del self
 
 
+
+
+    def slide(self, windowsize, cleanOut = False, **kwargs):
+        assert len(np.unique(self.ids)) <= 1, 'Multiple Timelines Not yet supported'
+        slid = slide_time_series(
+            self.data,
+            rolling_direction=1,
+            max_timeshift=(windowsize),
+            # max_timeshift=(windowsize-1),
+            column_id = self.column_id,
+            column_sort = self.column_sort,
+            column_kind = self.column_id,
+            **{k: kwargs[k] for k in kwargs.keys() if k in [k for k in tsfresh.utilities.dataframe_functions.roll_time_series.__code__.co_varnames]})
+        if cleanOut:
+            idx = self.timestamps[-(windowsize-1):]
+            if len(idx) > 0:
+                slid = slid.loc[[i not in idx for i in slid[self.column_id].values]]
+        cols = [self.column_sort, self.column_id]
+        cols = cols + [col for col in slid.columns.tolist() if col not in cols]
+        slid = slid.reindex(columns=cols)
+        slid.reset_index(drop=True, inplace=True)
+        #slid[self.__kind] = np.repeat(np.arange(0,slid.shape[0]/windowsize, 1, int), windowsize)
+        return slid
+
+    def extract_features(self, windowsize, roll = False):
+        assert len(np.unique(self.ids)) <= 1, 'Multiple Timelines Not yet supported'
+        slid = self.slide(windowsize)
+        if roll:
+            slid = self.reduceSlidedToRolled(slid, windowsize)
+        log(slid.head())
+        log(slid.columns)
+        log(self.extract_features_settings)
+        extracted = tsfresh.extract_features(slid, n_jobs= 0, **self.extract_features_settings)
+        log('succesfully extracted')
+        extracted[self.column_sort] = extracted.index
+        extracted[self.column_id] = 0
+        extracted.reset_index(drop=True, inplace=True)
+        extracted.sort_values(by=[self.column_id, self.column_sort], inplace = True)
+        cols = self.indexColumns + [col for col in extracted.columns if col not in self.indexColumns]
+        log(cols)
+        extracted = extracted[cols]
+        return extracted
+
+
+
+
+
+
+
+    '''
+    Save and load functions
+    '''
     @staticmethod
     def load(filename):
         from os.path import join, exists
@@ -228,6 +304,18 @@ class Data:
         if type(data) != type(None):
             data.delete()
     
+
+
+
+
+
+
+
+
+
+    '''
+    Plotting with plotly functions
+    '''
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
