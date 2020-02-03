@@ -40,9 +40,7 @@ def renderTest():
     if not exists:
         return []
     else:
-        log('lets extract')
         slid = data.extract_features(windowsize=5, roll=True)
-        log('extracted')
         # slid = data.slide(windowsize=5)
         return [
             html.Div([

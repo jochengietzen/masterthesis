@@ -228,23 +228,20 @@ class Data:
         #slid[self.__kind] = np.repeat(np.arange(0,slid.shape[0]/windowsize, 1, int), windowsize)
         return slid
 
-    def extract_features(self, windowsize, roll = False):
+    def extract_features(self, windowsize, roll = False, removeNa=True):
         assert len(np.unique(self.ids)) <= 1, 'Multiple Timelines Not yet supported'
         slid = self.slide(windowsize)
         if roll:
             slid = self.reduceSlidedToRolled(slid, windowsize)
-        log(slid.head())
-        log(slid.columns)
-        log(self.extract_features_settings)
         extracted = tsfresh.extract_features(slid, n_jobs= 0, **self.extract_features_settings)
-        log('succesfully extracted')
         extracted[self.column_sort] = extracted.index
         extracted[self.column_id] = 0
         extracted.reset_index(drop=True, inplace=True)
         extracted.sort_values(by=[self.column_id, self.column_sort], inplace = True)
         cols = self.indexColumns + [col for col in extracted.columns if col not in self.indexColumns]
-        log(cols)
         extracted = extracted[cols]
+        if removeNa:
+            extracted = extracted.loc[:,~extracted.isna().apply(any).values]
         return extracted
 
 
