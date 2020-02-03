@@ -1,13 +1,20 @@
 from dash.dependencies import Input, Output
 
-from webapp.flaskFiles.applicationProvider import app, session
+from webapp.flaskFiles.applicationProvider import app, server, session
 from webapp.flaskFiles.dash_upload import getUploadHTML
 import uuid
+from datetime import timedelta
 
 import sys
 from webapp.helper import log
+from webapp.config import dir_sessions
 
 from webapp.jgietzen.Graphics import renderTimeseries, renderTest
+
+@app.server.before_first_request
+def sessionPermanent():
+    session.permanent = True
+    server.permanent_session_lifetime = timedelta(weeks=4)
 
 @app.server.before_request
 def uid():
