@@ -11,8 +11,9 @@ from plotly.subplots import make_subplots
 
 import colorlover as cl
 
-from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series
+from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series, alternativeMap
 from webapp.flaskFiles.applicationProvider import session
+from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 
 class Data:
     __tsID = 'tsid'
@@ -23,6 +24,8 @@ class Data:
     __kind = 'tskind'
     __sortCache = None
     _frequency = None
+    featureFrames = {}
+    outlierExplanations = {}
     internalStore = {}
     slidedData = {}
     
@@ -54,11 +57,33 @@ class Data:
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
         self.internalStore = {}
+        self.initOutlierExplanations()
         '''
         Possible Idea:
             - One could include the values available in outlier columns as dropdown to mark what is an outlier.
             For now we just assume that an outlier is marked with a 1
         '''
+
+    def initOutlierExplanations(self):
+        if len(self.column_outlier) > 0:
+            for col in self.column_outlier:
+                self.initOutlierExplanation(col)
+    
+    def initOutlierExplanation(self, col):
+        dat = self.dataWithOutlier
+        assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
+        outs = dat[[col]].values.flatten()
+        outs = alternativeMap(outs, {1: True}, False)
+        self.outlierExplanations[col] = OutlierExplanation(outs, self)
+    
+    def recalculateOutlierExplanations(self):
+        calculated = list(self.outlierExplanations.keys())
+        outcols = self.column_outlier
+        for toDelete in [col for col in calculated if col not in outcols]:
+            del self.outlierExplanations[toDelete]
+        calculated = list(self.outlierExplanations.keys())
+        for toCalculate in [col for col in outcols if col not in calculated]:
+            self.initOutlierExplanation(toCalculate)
 
     def set_column_sort(self, column_sort):
         if self._column_sort == column_sort:
@@ -74,6 +99,7 @@ class Data:
         if self._column_outlier == column_outlier:
             return
         self._column_outlier = column_outlier
+        self.recalculateOutlierExplanations()
 
     def set_relevant_columns(self, relevant_columns):
         if self._relevantColumns == relevant_columns:
@@ -292,8 +318,19 @@ class Data:
         return extracted
 
 
+    '''
+    Functions for Outlier explanations
+    '''
+    def calc_feature_frame(self, l):
+        log('Feature frame calculation length', l)
+        if l not in self.featureFrames:
+            ret = self.extract_features(windowsize=l, roll = False, removeNa = True)
+            # TODO: Investigate again, why you need the decrementation of -1
+            self.featureFrames[l] = ret
 
-
+    def get_feature_frame(self, l):
+        self.calc_feature_frame(l)
+        return self.featureFrames[l]
 
 
 
