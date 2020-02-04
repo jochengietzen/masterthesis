@@ -22,6 +22,7 @@ class Data:
     __idIndex = None
     __kind = 'tskind'
     __sortCache = None
+    _frequency = None
     internalStore = {}
     slidedData = {}
     
@@ -40,12 +41,12 @@ class Data:
         '''
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
-        self.frequency = valueOrAlternative(kwargs, 'frequency')
+        self._frequency = valueOrAlternative(kwargs, 'frequency')
         self.short_desc = valueOrAlternative(kwargs, 'short_desc')
         self._column_id = valueOrAlternative(kwargs, 'column_id')
         assert has_timestamp != None and type(has_timestamp) == bool, 'Has Timestamp is required and needs to be of type boolean'
-        self.has_timestamp = has_timestamp
-        assert column_sort != None or self.frequency != None, 'Column sort is required and cannot be None if no frequency is available'
+        self._has_timestamp = has_timestamp
+        assert column_sort != None or self._frequency != None, 'Column sort is required and cannot be None if no frequency is available'
         self._column_sort = column_sort
         self.__kwargs = kwargs
         self.filename = valueOrAlternative(kwargs, 'filename', 'random')
@@ -74,12 +75,36 @@ class Data:
             return
         self._relevantColumns = relevant_columns
     
+    def set_frequency(self, frequency):
+        if self._frequency == frequency:
+            return
+        self._frequency = frequency
+
+    def set_has_timestamp_value(self, has_timestamp):
+        if type(has_timestamp) == str:
+            has_timestamp = has_timestamp == 'True'
+        if self._has_timestamp == has_timestamp:
+            return
+        if has_timestamp:
+            self.set_frequency(None)
+        self._has_timestamp = has_timestamp
+
+    @property
+    def has_timestamp_value(self):
+        return self._has_timestamp
+
+    @property
+    def has_timestamp(self):
+        return self._has_timestamp and self.column_sort in self.raw_df.columns
+
     @property
     def tsTstmp(self):
         return self.__tsTstmp
     
     @property
     def timestamps(self):
+        if self.has_timestamp:
+            return self.raw_df[[self.column_sort]].values.flatten()
         return self.data[[self.column_sort]].values.flatten()
 
     @property
@@ -108,8 +133,25 @@ class Data:
         return [col for col in self.raw_columns if col not in specialCols]
 
     @property
+    def has_frequency(self):
+        return self.frequency != None
+
+    @property
+    def frequency(self):
+        if self._frequency != None:
+            return self._frequency
+        if self.has_timestamp:
+            tmp = np.mean(np.ediff1d(self.timestamps))
+            return 1/tmp if tmp != 0 else None
+        return None
+
+    @property
+    def frequency_value(self):
+        return self._frequency
+
+    @property
     def sort_is_timestamp(self):
-        return self.has_timestamp or self._column_sort == None and self.frequency != None
+        return self.has_timestamp or self._column_sort == None and self._frequency != None
     
     @property
     def column_sort(self):

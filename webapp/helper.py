@@ -85,3 +85,6 @@ def slide_time_series(toslide, column_id, column_sort, rolling_direction = 1, ma
         srld.append(subslid)
     subslid = pd.concat(srld)
     return subslid
+
+def specificKwargs(kwargs, specifics): 
+    return {key: kwargs[key] if key in kwargs else specifics[key] for key in specifics.keys() if key in kwargs or type(specifics[key]) != type(None)}
