@@ -54,6 +54,11 @@ class Data:
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
         self.internalStore = {}
+        '''
+        Possible Idea:
+            - One could include the values available in outlier columns as dropdown to mark what is an outlier.
+            For now we just assume that an outlier is marked with a 1
+        '''
 
     def set_column_sort(self, column_sort):
         if self._column_sort == column_sort:
