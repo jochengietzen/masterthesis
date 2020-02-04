@@ -90,4 +90,4 @@ def specificKwargs(kwargs, specifics):
     return {key: kwargs[key] if key in kwargs else specifics[key] for key in specifics.keys() if key in kwargs or type(specifics[key]) != type(None)}
 
 def alternativeMap(arr, mapping, alternative):
-    return [alternative if elem not in mapping else mapping[elem] for elem in arr]
+    return np.array([alternative if elem not in mapping else mapping[elem] for elem in arr])
