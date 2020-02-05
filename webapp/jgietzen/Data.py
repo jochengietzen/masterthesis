@@ -15,6 +15,8 @@ from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecu
 from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Hashable import Hashable, cache
+from webapp.jgietzen.Threading import threaded
+
 
 class Data(Hashable):
     __tsID = 'tsid'
@@ -69,6 +71,7 @@ class Data(Hashable):
             for col in self.column_outlier:
                 self.initOutlierExplanation(col)
     
+    @threaded
     def initOutlierExplanation(self, col):
         dat = self.dataWithOutlier
         assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
