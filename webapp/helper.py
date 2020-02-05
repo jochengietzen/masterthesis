@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import math
+import inspect as ins
 
 
 percistency = dict(persistence=True, persistence_type='session')
@@ -91,3 +92,23 @@ def specificKwargs(kwargs, specifics):
 
 def alternativeMap(arr, mapping, alternative):
     return np.array([alternative if elem not in mapping else mapping[elem] for elem in arr])
+
+
+def inspect(Class):
+    """
+    Function to inspect classes. Gives you all attributes of given class
+    """
+    return [att[0] for att in ins.getmembers(Class, lambda a: not(ins.isroutine(a))) if not(att[0].startswith('__') and att[0].endswith('__'))]
+
+def inspectTuple(Class):
+    """
+    Function to inspect classes. Gives you all attributes and their values of given class
+    """
+    return [att for att in ins.getmembers(Class, lambda a: not(ins.isroutine(a))) if not(att[0].startswith('__') and att[0].endswith('__'))]
+
+def inspectDict(Class):
+    """
+    Function to inspect classes. Gives you all attributes and their values of given class as dictionary
+    """
+    return {att[0]: att[1] for att in inspectTuple(Class)}
+    
