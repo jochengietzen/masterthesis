@@ -30,7 +30,7 @@ class OutlierExplanation:
         
     def calcStandards(self):
         self.calcBlocks()
-        self.makeFeatureFrames()
+        # self.makeFeatureFrames()
         
     def calcBlocks(self):
         self.consecBlocks = consecutiveDiff(self.outlier)

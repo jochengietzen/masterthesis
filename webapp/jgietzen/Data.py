@@ -14,8 +14,9 @@ import colorlover as cl
 from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series, alternativeMap
 from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
+from webapp.jgietzen.Hashable import Hashable, cache
 
-class Data:
+class Data(Hashable):
     __tsID = 'tsid'
     __tsTstmp = 'tststmp'
     __colOut = 'outlierColumns'
@@ -26,7 +27,6 @@ class Data:
     _frequency = None
     featureFrames = {}
     outlierExplanations = {}
-    internalStore = {}
     slidedData = {}
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
@@ -42,6 +42,7 @@ class Data:
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
+        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'column_outlier'], verbose=True)
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
         self._frequency = valueOrAlternative(kwargs, 'frequency')
@@ -56,7 +57,6 @@ class Data:
         self.originalfilename = valueOrAlternative(kwargs, 'originalfilename')
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
-        self.internalStore = {}
         self.initOutlierExplanations()
         '''
         Possible Idea:
@@ -301,6 +301,7 @@ class Data:
         #slid[self.__kind] = np.repeat(np.arange(0,slid.shape[0]/windowsize, 1, int), windowsize)
         return slid
 
+    @cache()
     def extract_features(self, windowsize, roll = False, removeNa=True):
         assert len(np.unique(self.ids)) <= 1, 'Multiple Timelines Not yet supported'
         slid = self.slide(windowsize)
@@ -397,6 +398,7 @@ class Data:
     '''
     Plotting with plotly functions
     '''
+    @cache()
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -415,7 +417,7 @@ class Data:
         fig.update_layout(ts.layout)
         data = self.data[self.relevant_columns]
         mima = dict(minValue=data.min().min(), maxValue=data.max().max())
-        outlierRectangles = self.plotdataOutlierRectangleFigure(**mima)
+        outlierRectangles = self.plotdataOutlierBarsAsFigure(**mima)
         sums = self.dataWithOutlier[self.column_outlier].sum(axis=1)
         ticks = sums.max() if len(self.column_outlier) > 1 else 0
         ticks = list(range(ticks))
@@ -425,7 +427,8 @@ class Data:
         # fig.update_yaxes(secondary_y=True, row=1, col=1)
         return fig
 
-    def plotdataOutlierRectangleFigure(self, minValue = -1, maxValue = -1):
+    @cache()
+    def plotdataOutlierBarsAsFigure(self, minValue = -1, maxValue = -1):
         data = self.dataWithOutlier
         layout = dict(
             xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
@@ -493,6 +496,7 @@ class Data:
         fig.update_shapes(dict(xref='x', yref='y'))
         return fig
 
+    @cache(payAttentionTo=['relevant_columns'])
     def plotdataTimeseriesFigure(self):
         data = self.data
         layout = dict(
