@@ -32,7 +32,7 @@ from webapp.config import percistency, plotlyConf,  colormap
 #                 )}},
 #                 id = 'timeseries-graph',
 #                 config = plotlyConf['config'],
-#                 style= plotlyConf['style'],
+#                 style= plotlyConf['styles']['fullsize'],
 #             )
 #             ]
 

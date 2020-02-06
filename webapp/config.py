@@ -19,7 +19,11 @@ percistency = dict(persistence=True, persistence_type='session')
 plotlyConf = dict(
     config = dict(displaylogo = False),
     layout = dict(),
-    style = {'width': '95vw', 'height': '300px'},
+    styles = dict(
+        fullsize = {'width': '95vw', 'height': '300px'},
+        supersize = {'width': '95vw', 'height': '600px'},
+        smallCorner = {'width': '400px', 'height': '300px'}
+    ),
     
 )
 colorpalette = dict(

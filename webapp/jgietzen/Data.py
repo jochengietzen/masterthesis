@@ -406,7 +406,7 @@ class Data(Hashable):
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
-                style= plotlyConf['style'],
+                style= plotlyConf['styles']['fullsize'],
                 figure = self.plotdataTimeseriesOutlierGraph()
                 # figure = self.plotdataTimeseriesFigure()
             )
@@ -526,7 +526,6 @@ class Data(Hashable):
 
     def plotoutlierExplanationPolarFigure(self):
         self.recalculateOutlierExplanations()
-        # col = self.column_outlier[0]
         data = []
         if len(self.column_outlier) == 1:
             cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
@@ -534,12 +533,9 @@ class Data(Hashable):
         else:
             size = 1 / (len(self.column_outlier))
             for ind, col in enumerate(self.column_outlier):
-                # ind = len(self.column_outlier) - indd - 1
-                # factor = len(self.column_outlier) - ind
                 holesize = math.floor(size * 10)/10 * (ind + .5)
                 holesize2 = holesize / 2
                 xy = list(np.array([.5 - holesize2, .5 + holesize2]))
-                # xy = list(np.array([ factor * size/2, 1 - factor * size/2]))
                 cursize = dict(
                     hole = holesize, # if ind > 0 else None,
                     domain = dict(
@@ -551,15 +547,11 @@ class Data(Hashable):
                 cs = self.outlierExplanations[col].getOutlierPartitions
                 curpie = dict(
                     type='pie',
-                    # text = [col] * 2,
+                    legendgroup=col,
+                    name = col,
                     labels=['{} {}'.format(col, c) for c in cs[2]],
                     values=cs[1],
                     **cursize,
-                    # hole= .5,
-                    # domain = dict(
-                    #     x = [.2, 1],
-                    #     y = [.2, 1]
-                    # ),
                     marker = dict(
                         colors = cs[4]
                     )
@@ -572,7 +564,7 @@ class Data(Hashable):
     def plotoutlierExplanationPolarGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
-                # style= plotlyConf['style'],
+                style= plotlyConf['styles']['smallCorner'],
                 figure = self.plotoutlierExplanationPolarFigure()
             )
     
@@ -580,7 +572,7 @@ class Data(Hashable):
     def plotOutlierDistributionGraph(self, shareX = True):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
-                # style= plotlyConf['style'],
+                style= plotlyConf['styles']['supersize'],
                 figure = self.plotOutlierDistributionFigure()
             )
 
