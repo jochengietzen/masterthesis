@@ -568,36 +568,25 @@ class Data(Hashable):
         fig = go.Figure(data=list(reversed(data)))
         return fig
         
-    # @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
+    @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
     def plotoutlierExplanationPolarGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
                 # style= plotlyConf['style'],
+                figure = self.plotoutlierExplanationPolarFigure()
+            )
+    
+    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
+    def plotOutlierDistributionGraph(self, shareX = True):
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                # style= plotlyConf['style'],
                 figure = self.plotOutlierDistributionFigure()
-                # figure = self.plotoutlierExplanationPolarFigure()
             )
 
-    # def plotoutlierExplanationPolarGraph(self):
-    #     fig = make_subplots(2,1)
-
-    #     fig.add_trace(go.Box(y=[2,3,4]
-
-    #     ), 1, 1)
-    #     fig.add_trace(go.Box(y=[5,4,3]
-
-    #     ), 2, 1)
-    #     return dcc.Graph(id='timeseries-graph',
-    #         # config = plotlyConf['config'],
-    #         # style= plotlyConf['style'],
-    #         figure = fig
-    #         # figure = self.plotoutlierExplanationPolarFigure()
-    #     )
-    
     def plotOutlierDistributionFigure(self, shareX = True):
         self.recalculateOutlierExplanations()
         rows, cols = len(self.relevant_columns), len(self.column_outlier)
-        # rows, cols = len(self.relevant_columns) * len(self.column_outlier), 1
-        log(rows, cols)
         fig = make_subplots(
             rows=rows,
             cols=cols,
@@ -614,21 +603,17 @@ class Data(Hashable):
         data = self.data
         for ind, col in enumerate(self.relevant_columns):
             y = data[[col]].values.flatten()
-            # row = 1 + ind * len(self.column_outlier)
             row = 1 + ind
             for ind2, out in enumerate(self.column_outlier):
                 groups = {}
                 groupCount = {}
                 currentrow = row
-                # currentrow = row + ind2
                 for _, (block, bchar, bcolor) in enumerate(self.outlierExplanations[out].consecBlocksForPlotting):
                     if bchar[0] not in groupCount:
                         groupCount[bchar[0]] = 0
                     y0 = y[block[0]:block[1]]
-                    # name = '{}-{}-{}-{}'.format(bchar[0], col, out, groupCount[bchar[0]]),
                     name = '{}-{}-{}'.format(bchar[0], col, groupCount[bchar[0]])
                     name = '{}-{}'.format(bchar[0], groupCount[bchar[0]]) if shareX else name
-                    # name = bind if shareX else name
                     fig.add_trace(go.Box(y=y0,
                         legendgroup = '{}-{}'.format(bchar[0], col),
                         name = name,
