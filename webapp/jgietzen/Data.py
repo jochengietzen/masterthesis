@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 import numpy as np
 import pickle as pkl
@@ -522,3 +523,56 @@ class Data(Hashable):
         for ind, col in enumerate(self.relevant_columns):
             fig.add_trace(go.Scatter(name=col , x=data[[self.column_sort]].values.flatten(), y=data[[col]].values.flatten(), marker= dict(color=colormap(ind))))
         return fig
+
+    def plotoutlierExplanationPolarFigure(self):
+        self.recalculateOutlierExplanations()
+        # col = self.column_outlier[0]
+        data = []
+        if len(self.column_outlier) == 1:
+            cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
+            data.append(go.Pie(labels=cs[2], values=cs[1]))
+        else:
+            size = 1 / (len(self.column_outlier))
+            for ind, col in enumerate(self.column_outlier):
+                # ind = len(self.column_outlier) - indd - 1
+                # factor = len(self.column_outlier) - ind
+                holesize = math.floor(size * 10)/10 * (ind + .5)
+                holesize2 = holesize / 2
+                xy = list(np.array([.5 - holesize2, .5 + holesize2]))
+                # xy = list(np.array([ factor * size/2, 1 - factor * size/2]))
+                cursize = dict(
+                    hole = holesize, # if ind > 0 else None,
+                    domain = dict(
+                        x = xy,
+                        y = xy,
+                    ) 
+                )
+                log(col, cursize)
+                cs = self.outlierExplanations[col].getOutlierPartitions
+                curpie = dict(
+                    type='pie',
+                    # text = [col] * 2,
+                    labels=['{} {}'.format(col, c) for c in cs[2]],
+                    values=cs[1],
+                    **cursize,
+                    # hole= .5,
+                    # domain = dict(
+                    #     x = [.2, 1],
+                    #     y = [.2, 1]
+                    # ),
+                    marker = dict(
+                        colors = cs[4]
+                    )
+                )
+                data.append(curpie)
+        fig = go.Figure(data=list(reversed(data)))
+        return fig
+        
+    @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
+    def plotoutlierExplanationPolarGraph(self):
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                # style= plotlyConf['style'],
+                figure = self.plotoutlierExplanationPolarFigure()
+                # figure = self.plotdataTimeseriesFigure()
+            )

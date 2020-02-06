@@ -34,6 +34,8 @@ from webapp.helper import percistency, plotlyConf, log, colormap
 #             )
 #             ]
 
+
+
 def renderTest():
     import dash_table
     exists, data = Data.existsData()
@@ -61,4 +63,14 @@ def renderTimeseries():
         # dat, layout = data.plotdataTimeseries()
         return [
             data.plotdataTimeseriesGraph()
+        ]
+
+def renderOutlierExplanation():
+    exists, data = Data.existsData()
+    if not exists:
+        return []
+    else:
+        # dat, layout = data.plotdataTimeseries()
+        return [
+            data.plotoutlierExplanationPolarGraph()
         ]

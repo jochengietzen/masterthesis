@@ -9,7 +9,7 @@ import sys
 from webapp.helper import log
 from webapp.config import dir_sessions
 
-from webapp.jgietzen.Graphics import renderTimeseries, renderTest
+from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlierExplanation
 
 @app.server.before_first_request
 def sessionPermanent():
@@ -30,6 +30,8 @@ def render_tab(tab):
     elif tab == 'tab-2':
         return renderTimeseries()
     elif tab == 'tab-3':
+        return renderOutlierExplanation()
+    elif tab == 'tab-4':
         return renderTest()
 
 

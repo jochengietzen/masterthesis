@@ -47,7 +47,13 @@ class OutlierExplanation:
         for l in np.unique(lens):
             self.parent.calc_feature_frame(l)
     
-
+    @property
+    def getOutlierPartitions(self):
+        counts = list(np.unique(self.outlier, return_counts=True))
+        counts.append(self.npmap({True: 'outlier', False: 'inlier'})(counts[0]))
+        counts.append(counts[1] / sum(counts[1]))
+        counts.append(self.npmap({True: 'rgb(250,0,0)', False: 'rgb(0,250,0)'})(counts[0]))
+        return counts
     
     '''
     def getCorrectedDataFrame(self, l):
