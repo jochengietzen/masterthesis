@@ -22,7 +22,7 @@ plotlyConf = dict(
     styles = dict(
         fullsize = {'width': '95vw', 'height': '300px'},
         supersize = {'width': '95vw', 'height': '600px'},
-        smallCorner = {'width': '400px', 'height': '300px'}
+        smallCorner = {'width': '30vw', 'height': '180px'}
     ),
     
 )

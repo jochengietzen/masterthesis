@@ -524,48 +524,89 @@ class Data(Hashable):
             fig.add_trace(go.Scatter(name=col , x=data[[self.column_sort]].values.flatten(), y=data[[col]].values.flatten(), marker= dict(color=colormap(ind))))
         return fig
 
-    def plotoutlierExplanationPolarFigure(self):
+    def plotoutlierExplanationPieChartsFigure(self, breakAfterXCharts = 5):
         self.recalculateOutlierExplanations()
-        data = []
-        if len(self.column_outlier) == 1:
+        l = len(self.column_outlier)
+        fig = None
+        if l == 1:
             cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
-            data.append(go.Pie(labels=cs[2], values=cs[1]))
-        else:
-            size = 1 / (len(self.column_outlier))
-            for ind, col in enumerate(self.column_outlier):
-                holesize = math.floor(size * 10)/10 * (ind + .5)
-                holesize2 = holesize / 2
-                xy = list(np.array([.5 - holesize2, .5 + holesize2]))
-                cursize = dict(
-                    hole = holesize, # if ind > 0 else None,
-                    domain = dict(
-                        x = xy,
-                        y = xy,
-                    ) 
+            fig = go.Figure(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
+        elif l > 1:
+            rows, cols = 1, l
+            l2 = l/2 if l > breakAfterXCharts else l
+            if l > breakAfterXCharts:
+                rows, cols = 2, math.ceil(l2)
+            fig = make_subplots(rows, cols,
+                    print_grid=True,
+                    specs=[[{"type": 'domain'} for col in range(cols)] for r in range(rows)]
                 )
-                log(col, cursize)
+            row, column = 1, 0
+            for _, col in enumerate(self.column_outlier):
+                column += 1
+                if column > l2:
+                    row +=1
+                    column = 1
                 cs = self.outlierExplanations[col].getOutlierPartitions
-                curpie = dict(
-                    type='pie',
-                    legendgroup=col,
-                    name = col,
-                    labels=['{} {}'.format(col, c) for c in cs[2]],
+                fig.add_trace(go.Pie(
+                    title=dict(text=col, position='bottom center'),
+                    showlegend=False,
                     values=cs[1],
-                    **cursize,
-                    marker = dict(
-                        colors = cs[4]
-                    )
-                )
-                data.append(curpie)
-        fig = go.Figure(data=list(reversed(data)))
+                    name=col,
+                    marker=dict(colors=cs[4]),
+                    labels = ['{} {}'.format(col, c) for c in cs[2]],
+                ), row, column)
+            fig.update_layout(
+                margin=go.layout.Margin(
+                    l=0,
+                    r=0,
+                    b=0,
+                    t=0,
+                    pad=0
+                ))
         return fig
         
+    # def plotoutlierExplanationPolarFigure(self):
+    #     self.recalculateOutlierExplanations()
+    #     data = []
+    #     if len(self.column_outlier) == 1:
+    #         cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
+    #         data.append(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
+    #     else:
+    #         size = 1 / (len(self.column_outlier))
+    #         for ind, col in enumerate(self.column_outlier):
+    #             holesize = math.floor(size * 10)/10 * (ind + .5)
+    #             holesize2 = holesize / 2
+    #             xy = list(np.array([.5 - holesize2, .5 + holesize2]))
+    #             cursize = dict(
+    #                 hole = holesize, # if ind > 0 else None,
+    #                 domain = dict(
+    #                     x = xy,
+    #                     y = xy,
+    #                 ) 
+    #             )
+    #             log(col, cursize)
+    #             cs = self.outlierExplanations[col].getOutlierPartitions
+    #             curpie = dict(
+    #                 type='pie',
+    #                 legendgroup=col,
+    #                 name = col,
+    #                 labels=['{} {}'.format(col, c) for c in cs[2]],
+    #                 values=cs[1],
+    #                 **cursize,
+    #                 marker = dict(
+    #                     colors = cs[4]
+    #                 )
+    #             )
+    #             data.append(curpie)
+    #     fig = go.Figure(data=list(reversed(data)))
+    #     return fig
+        
     @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
-    def plotoutlierExplanationPolarGraph(self):
+    def plotoutlierExplanationPieChartsGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
                 style= plotlyConf['styles']['smallCorner'],
-                figure = self.plotoutlierExplanationPolarFigure()
+                figure = self.plotoutlierExplanationPieChartsFigure()
             )
     
     @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )

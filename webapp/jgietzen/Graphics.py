@@ -74,6 +74,6 @@ def renderOutlierExplanation():
     else:
         # dat, layout = data.plotdataTimeseries()
         return [
-            data.plotoutlierExplanationPolarGraph(),
+            data.plotoutlierExplanationPieChartsGraph(),
             data.plotOutlierDistributionGraph()
         ]
