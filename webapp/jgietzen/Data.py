@@ -17,7 +17,7 @@ from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Hashable import Hashable, cache
 from webapp.jgietzen.Threading import threaded
-
+from webapp.helper import inspect
 
 class Data(Hashable):
     __tsID = 'tsid'
@@ -568,11 +568,78 @@ class Data(Hashable):
         fig = go.Figure(data=list(reversed(data)))
         return fig
         
-    @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
+    # @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
     def plotoutlierExplanationPolarGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
                 # style= plotlyConf['style'],
-                figure = self.plotoutlierExplanationPolarFigure()
-                # figure = self.plotdataTimeseriesFigure()
+                figure = self.plotOutlierDistributionFigure()
+                # figure = self.plotoutlierExplanationPolarFigure()
             )
+
+    # def plotoutlierExplanationPolarGraph(self):
+    #     fig = make_subplots(2,1)
+
+    #     fig.add_trace(go.Box(y=[2,3,4]
+
+    #     ), 1, 1)
+    #     fig.add_trace(go.Box(y=[5,4,3]
+
+    #     ), 2, 1)
+    #     return dcc.Graph(id='timeseries-graph',
+    #         # config = plotlyConf['config'],
+    #         # style= plotlyConf['style'],
+    #         figure = fig
+    #         # figure = self.plotoutlierExplanationPolarFigure()
+    #     )
+    
+    def plotOutlierDistributionFigure(self, shareX = True):
+        self.recalculateOutlierExplanations()
+        rows, cols = len(self.relevant_columns), len(self.column_outlier)
+        # rows, cols = len(self.relevant_columns) * len(self.column_outlier), 1
+        log(rows, cols)
+        fig = make_subplots(
+            rows=rows,
+            cols=cols,
+            print_grid=True,
+            shared_xaxes= shareX,
+            shared_yaxes=True,
+            start_cell='top-left',
+            horizontal_spacing=.05,
+            vertical_spacing = .2,
+            subplot_titles= ['{out} for variable {col}'.format(out=out, col=col) for col in self.relevant_columns for out in self.column_outlier]
+            )
+        fig.update_layout(dict(title=dict(text='Distribution of outliers vs inliers', x = .5), hovermode = 'x'))
+        
+        data = self.data
+        for ind, col in enumerate(self.relevant_columns):
+            y = data[[col]].values.flatten()
+            # row = 1 + ind * len(self.column_outlier)
+            row = 1 + ind
+            for ind2, out in enumerate(self.column_outlier):
+                groups = {}
+                groupCount = {}
+                currentrow = row
+                # currentrow = row + ind2
+                for _, (block, bchar, bcolor) in enumerate(self.outlierExplanations[out].consecBlocksForPlotting):
+                    if bchar[0] not in groupCount:
+                        groupCount[bchar[0]] = 0
+                    y0 = y[block[0]:block[1]]
+                    # name = '{}-{}-{}-{}'.format(bchar[0], col, out, groupCount[bchar[0]]),
+                    name = '{}-{}-{}'.format(bchar[0], col, groupCount[bchar[0]])
+                    name = '{}-{}'.format(bchar[0], groupCount[bchar[0]]) if shareX else name
+                    # name = bind if shareX else name
+                    fig.add_trace(go.Box(y=y0,
+                        legendgroup = '{}-{}'.format(bchar[0], col),
+                        name = name,
+                        showlegend=False,
+                        marker_color=bcolor,
+                        boxpoints='suspectedoutliers',
+                    ), currentrow, 1 + ind2)
+                    groupCount[bchar[0]] += 1
+                    if bchar[0] not in groups:
+                        groups[bchar[0]] = bcolor
+            [fig.add_trace(go.Box(y = ['null'],legendgroup= '{}-{}'.format(c[0], col),name = '{}-{}'.format(c[0], col), marker_color = c[1]), currentrow, 1) for c in groups.items()]
+        for yaxis in [ya for ya in inspect(fig.layout) if ya.startswith('axis', 1)]:
+            getattr(fig.layout, yaxis).showticklabels = True
+        return fig

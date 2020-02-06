@@ -10,9 +10,9 @@ import numpy as np
 # import contrastive_explanation as ce
 
 from webapp.helper import consecutiveDiff, log
+from webapp.jgietzen.Hashable import Hashable
 
-
-class OutlierExplanation:
+class OutlierExplanation(Hashable):
     npmap = lambda self, mapping: np.vectorize(lambda a: mapping[a] if a in mapping else a)
     surrogates = {}
     lime = {}
@@ -20,9 +20,9 @@ class OutlierExplanation:
     cfoil = {}
     consecBlocks = None
     minimumOutliers = 2
-    internalStore = {}
     
     def __init__(self, outlier, parent):
+        super().__init__(alwaysCheck= ['outlier', 'parent'], verbose=True)
         assert all([type(o) in [bool, np.bool_] for o in outlier]), 'Please provide your outlier data as boolean list/array, where True indicates an outlier'
         self.outlier = outlier
         self.parent = parent
@@ -35,7 +35,21 @@ class OutlierExplanation:
     def calcBlocks(self):
         self.consecBlocks = consecutiveDiff(self.outlier)
         return self.consecBlocks
-        
+
+    @property
+    def consecBlocksSortedForPlotting(self):
+        blocks = self.consecBlocksForPlotting
+        return [b for b in blocks if b[1][0] == 'outlier'] + [b for b in blocks if b[1][0] == 'inlier']
+
+    @property
+    def consecBlocksForPlotting(self):
+        return [
+            (b[0],
+            ('outlier' if b[1][0] == True else 'inlier' ,b[1][1]),
+            'indianred' if b[1][0] == True else 'limegreen'
+            ) for b in self.consecBlocks
+        ]
+    
     @property
     def outlierBlocks(self):
         blocks = self.consecBlocks
