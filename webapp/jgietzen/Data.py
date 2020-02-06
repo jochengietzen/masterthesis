@@ -565,42 +565,6 @@ class Data(Hashable):
                 ))
         return fig
         
-    # def plotoutlierExplanationPolarFigure(self):
-    #     self.recalculateOutlierExplanations()
-    #     data = []
-    #     if len(self.column_outlier) == 1:
-    #         cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
-    #         data.append(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
-    #     else:
-    #         size = 1 / (len(self.column_outlier))
-    #         for ind, col in enumerate(self.column_outlier):
-    #             holesize = math.floor(size * 10)/10 * (ind + .5)
-    #             holesize2 = holesize / 2
-    #             xy = list(np.array([.5 - holesize2, .5 + holesize2]))
-    #             cursize = dict(
-    #                 hole = holesize, # if ind > 0 else None,
-    #                 domain = dict(
-    #                     x = xy,
-    #                     y = xy,
-    #                 ) 
-    #             )
-    #             log(col, cursize)
-    #             cs = self.outlierExplanations[col].getOutlierPartitions
-    #             curpie = dict(
-    #                 type='pie',
-    #                 legendgroup=col,
-    #                 name = col,
-    #                 labels=['{} {}'.format(col, c) for c in cs[2]],
-    #                 values=cs[1],
-    #                 **cursize,
-    #                 marker = dict(
-    #                     colors = cs[4]
-    #                 )
-    #             )
-    #             data.append(curpie)
-    #     fig = go.Figure(data=list(reversed(data)))
-    #     return fig
-        
     @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
     def plotoutlierExplanationPieChartsGraph(self):
         return dcc.Graph(id='timeseries-graph',
