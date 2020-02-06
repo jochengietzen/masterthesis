@@ -411,6 +411,7 @@ class Data(Hashable):
                 # figure = self.plotdataTimeseriesFigure()
             )
     
+    # @cache()
     def plotdataTimeseriesOutlierGraph(self):
         rows, cols = 2, 1
         fig = make_subplots(rows=rows, cols=cols, specs=[[{"secondary_y": True}] for r in range(rows) for col in range(cols)])
