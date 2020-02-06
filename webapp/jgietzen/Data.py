@@ -12,12 +12,12 @@ from plotly.subplots import make_subplots
 
 import colorlover as cl
 
-from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series, alternativeMap
+from webapp.config import colormap, plotlyConf
 from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Hashable import Hashable, cache
 from webapp.jgietzen.Threading import threaded
-from webapp.helper import inspect
+from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap
 
 class Data(Hashable):
     __tsID = 'tsid'

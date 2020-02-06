@@ -5,7 +5,9 @@ import plotly_express as px
 import plotly.graph_objects as go
 
 
-from webapp.helper import percistency, plotlyConf, log, colormap
+from webapp.helper import log
+
+from webapp.config import percistency, plotlyConf,  colormap
 
 # def renderTimeseries2():
 #     exists, data = Data.existsData()
@@ -72,5 +74,6 @@ def renderOutlierExplanation():
     else:
         # dat, layout = data.plotdataTimeseries()
         return [
-            data.plotoutlierExplanationPolarGraph()
+            data.plotoutlierExplanationPolarGraph(),
+            data.plotOutlierDistributionGraph()
         ]
