@@ -3,6 +3,63 @@ from webapp.helper import log
 from webapp.helper import inspectDict
 
 def cache(payAttentionTo = None, ignore = None):
+    '''
+    Decorator Function to hash functions of objects of (sub)type Hashable
+
+    Will return the last cached result without executing the function,
+    iff it has been calculated with the same kwargs already. 
+    Otherwise executes function and saves result in cache.
+
+    Parameters
+    ----------
+    payAttentionTo : list, optional, default = None 
+        A list of strings containing attribute names of the class,
+        that need to be watched. E.g. if payAttentionTo = ['bar'] 
+        and used in Class Foo, then cache function will check, if 
+        foo.bar or one of the kwargs changed.
+    
+    ignore : list, optional, default = None
+        A list of strings containing attribute names of the class,
+        that should be ignored for the decorated function. The 
+        superclass Hashable allows you to set a always track option 
+        of attributes. But if only this decorated function is 
+        independent of the always tracked attribute, one can ignore
+        it with that option.
+
+    Returns
+    -------
+    decorator_wrapper : wrapper function
+        A decorator wrapper for a function with kwargs.
+        
+
+    See Also
+    --------
+    webapp.jgietzen.Hashable Hashable: Class that defines the cache
+
+   
+    Examples
+    --------
+    >>> Foo(Hashable):
+    >>>     def __init__(self):
+    >>>         super().__init__()
+    >>>         self.bar = 'biz'
+
+    >>>     @cache(payAttentionTo=['bar'])
+    >>>     def ret(self):
+    >>>         print('run')
+    >>>         return self.bar + 'baz'
+    
+    >>> foo = Foo()
+    >>> foo.ret()
+    run
+    bizbaz
+    >>> foo.ret()
+    bizbaz
+    >>> foo.bar = 'buz'
+    >>> foo.ret()
+    run
+    buzbaz
+    '''
     def _cache(func):
         def wrapper_do_function(*args, **kwargs):
             try:
@@ -39,6 +96,58 @@ def cache(payAttentionTo = None, ignore = None):
 
 
 class Hashable:
+    '''
+    Class that implements a hashtable like cache
+
+    Use this class in order to make the decorator function cache 
+    available/useable for your class. Don't forget to run 
+    super().__init__() in your constructor
+
+    Parameters
+    ----------
+    storageSizeInMB : int, optional, default = 1000
+        Defines the maximum cache space in MB of your Class object
+    
+    verbose : bool, optional, default = True
+        If True, Hashable will produce information output
+    
+    alwaysCheck : list, optional, default = None
+        A list of strings with the attribute names of your class,
+        which should be checked for changes everytime a cache 
+        decorated function is run.
+
+
+    See Also
+    --------
+    webapp.jgietzen.Hashable cache: Decorator function
+
+
+    ...
+
+    Examples
+    --------
+    >>> Foo(Hashable):
+    >>>     def __init__(self):
+    >>>         super().__init__()
+    >>>         self.bar = 'biz'
+
+    >>>     @cache(payAttentionTo=['bar'])
+    >>>     def ret(self):
+    >>>         print('run')
+    >>>         return self.bar + 'baz'
+    
+    >>> foo = Foo()
+    >>> foo.ret()
+    run
+    bizbaz
+    >>> foo.ret()
+    bizbaz
+    >>> foo.bar = 'buz'
+    >>> foo.ret()
+    run
+    buzbaz
+
+    '''
     internalStore={}
     storageSize = 1000
     verbose = False
@@ -50,6 +159,11 @@ class Hashable:
         self.alwaysCheck = alwaysCheck
     
     def isHashedAlready(self, hashable):
+        '''
+        Function that checks if the function was already calculated and
+        saved. Returns boolean about the check and the return value of 
+        the function, iff exists, otherwise None. 
+        '''
         exists = hashable in self.internalStore
         if self.verbose and exists:
             log('Reuse result from earlier with')
