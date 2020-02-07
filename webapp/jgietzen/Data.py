@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import colorlover as cl
 import matrixprofile
-from matrixprofile import *
+from matrixprofile import matrixProfile
 
 from webapp.config import dir_datafiles
 from webapp.config import colormap, plotlyConf
@@ -656,22 +656,45 @@ class Data(Hashable):
                 figure = self.matrixProfileFigure(outcol)
             )
 
+    def scatter(self, col=None, x = None, y = None, name = None):
+        assert type(col) != type(None) or type(y) != type(None)
+        if type(x) == type(None):
+            x = self.timestamps
+        if type(y) == type(None):
+            y = self.data[list(col)].values.flatten()
+        return go.Scatter(
+            x = x,
+            y = y,
+            name= name if name != None else None
+        )
+
+    def matrixprofile(self, col, motiflen):
+        mp = matrixProfile.stomp(self.data[list(col)].values.flatten(), motiflen)
+        return self.scatter(y = mp[0], name = 'matrixprofile (len {})'.format(motiflen))
+
     def matrixProfileFigure(self, outcol, topmotifs = 3):
         l = len(self.outlierExplanations[outcol].outlierBlocks)
         linesPerPlot = 4
-        rows, cols = 1 + l * linesPerPlot, (topmotifs + 1) * 2
+        rows, cols = l * linesPerPlot, (topmotifs + 1) * 2
         specs = [[None] * cols for row in range(rows)]
-        specs[0][0] = dict(rowspan=1, colspan = cols)
+        # specs[0][0] = dict(rowspan=1, colspan = cols)
+        for row in range(l*linesPerPlot):
+            if row % linesPerPlot in [0, 1]:
+                specs[row][0] = dict(rowspan = 1, colspan = cols)
+            else:
+                for c in range(0, cols, 2):
+                    specs[row][c] = dict(colspan = 2, rowspan = 1)
         log(specs)
-        # for row in range(l*linesPerPlot):
-        #     spec = []
-        #     for col in range(cols // 2):
-        #         spec.append(dict(colspan = 2, rowspan = 1))
-        #     specs.append(spec)
         fig = make_subplots(rows, cols,
             specs = specs,
-            print_grid=True
+            print_grid=True,
+            shared_xaxes=True,
+            shared_yaxes=True
         )
+        relcol = self.relevant_columns[0]
+        currentBlockLength = self.outlierExplanations[outcol].outlierBlocks[0][1][1]
+        fig.add_trace(self.scatter(relcol, name='Timeseries'), row = 1, col= 1)
+        fig.add_trace(self.matrixprofile(col = relcol, motiflen = currentBlockLength), row = 2, col = 1)
         return fig
         # tsid = 0
         # i = 8
