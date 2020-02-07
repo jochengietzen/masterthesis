@@ -3,15 +3,16 @@ import pandas as pd
 import numpy as np
 import pickle as pkl
 import tsfresh
-from webapp.config import dir_datafiles
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 import colorlover as cl
+import matrixprofile
+from matrixprofile import *
 
+from webapp.config import dir_datafiles
 from webapp.config import colormap, plotlyConf
 from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
@@ -348,6 +349,17 @@ class Data(Hashable):
         for oe in self.outlierExplanations:
             self.outlierExplanations[oe].fitExplainers(adjustedToOutlierBlock = adjustedToOutlierBlock)
 
+    def explainAll(self, index = 0):
+        a = []
+        for oe in self.outlierExplanations:
+            a += self.outlierExplanations[oe].explainAll(index)
+        return a
+
+
+
+
+
+
     '''
     Save and load functions
     '''
@@ -635,3 +647,146 @@ class Data(Hashable):
         for yaxis in [ya for ya in inspect(fig.layout) if ya.startswith('axis', 1)]:
             getattr(fig.layout, yaxis).showticklabels = True
         return fig
+
+    def matrixProfileGraph(self, outcol):
+        l = len(self.outlierExplanations[outcol].outlierBlocks)
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['lambdastyles']['fullsize'](l, 500),
+                figure = self.matrixProfileFigure(outcol)
+            )
+
+    def matrixProfileFigure(self, outcol, topmotifs = 3):
+        l = len(self.outlierExplanations[outcol].outlierBlocks)
+        linesPerPlot = 4
+        rows, cols = 1 + l * linesPerPlot, (topmotifs + 1) * 2
+        specs = [[None] * cols for row in range(rows)]
+        specs[0][0] = dict(rowspan=1, colspan = cols)
+        log(specs)
+        # for row in range(l*linesPerPlot):
+        #     spec = []
+        #     for col in range(cols // 2):
+        #         spec.append(dict(colspan = 2, rowspan = 1))
+        #     specs.append(spec)
+        fig = make_subplots(rows, cols,
+            specs = specs,
+            print_grid=True
+        )
+        return fig
+        # tsid = 0
+        # i = 8
+        # topmotifs = 3
+        # fsz = 16
+        # # Get the current combination
+        # cdf = self.data.bare_dataframe[self.data.bare_dataframe[self.data.column_id] == tsid]
+        # #x,y,out,outliers,colname = getCombination(i)
+        # x = cdf[self.data.column_sort].values
+        # y = cdf.drop(columns = [self.data.column_id, self.data.column_sort]).values.flatten()
+        # # Get the consecutive subseries of same category
+        # blocks = self.consecBlocks
+        # # Only get the subseries which are outliers and have a percentage (=50) % length of windowsize (=30)
+        # outblocks = self.outlierBlocks
+        # # Define cholorscheme for outliers
+        # c = lambda x: plt.cm.Reds(mpl.colors.Normalize(vmin=-1, vmax=len(outblocks))(x))
+        # noBorders = lambda axis, borders = ['top', 'bottom', 'left', 'right']: list(map(lambda x: axis.spines[x].set_visible(False), borders))
+
+        # fig = plt.figure(figsize=(30,20 * len(outblocks)))
+        # print('Showing the outlier subseries found compared to the top {} motifs of same length'.format(topmotifs))
+        # grid = plt.GridSpec(1 + len(outblocks) * 4, (topmotifs + 1) * 2, hspace= .2, wspace = .2)
+        # main_ax = fig.add_subplot(grid[0,:])
+        # y_adj = y.copy()
+        # y_adj[[x for bl, bc in outblocks for x in list(range(bl[0] + 1, bl[1] - 1))]] = np.nan
+        # main_ax.plot(x, y_adj, color='black', label = 'original data')
+        # main_ax.set_title('Original data and found outlier subseries', fontsize = fsz)
+        # for bInd, (bl, bchar) in enumerate(outblocks):
+        #     bl2 = (bl[0] - 1, bl[1] + 1)
+        #     motiflen = bchar[1]
+        #     xo = x[range(*bl)]
+        #     yo = y[range(*bl)]
+        #     ysub_adj = y.copy()
+        #     ysub_adj[range(bl[0] + 1, bl[1] - 1)] = np.nan
+        #     main_ax.plot(x[range(*bl)], y[range(*bl)], color=c(bInd), label = 'Outlier subseries')
+        #     rInd = 4 * bInd + 3
+
+        #     border0 = fig.add_subplot(grid[rInd-2:rInd+2, :], xticks =[], yticks = [])
+        #     border1 = fig.add_subplot(grid[rInd:rInd+2, 0:2], xticks =[], yticks = [])
+        #     border1.set_title('Outlier subseries of length {}'.format(motiflen), fontsize = fsz)
+        #     cur_ax1 = fig.add_subplot(grid[rInd, 0:2])
+        #     cur_ax1.plot(xo, yo, color=c(bInd))
+        #     cur_ax2 = fig.add_subplot(grid[rInd + 1, 0:2])
+        #     bpo = cur_ax2.boxplot(yo)
+        #     cur_ax2.set_title('Distribution of subseries', fontsize=fsz)
+        #     border2 = fig.add_subplot(grid[rInd:rInd+2, 2:], xticks =[], yticks = [])
+        #     border2.set_title('Corresponding top {} motifs derived by MP with length {}'.format(topmotifs, motiflen), fontsize=fsz)
+
+        #     submain_ax = fig.add_subplot(grid[rInd-2, :], xticks=[])
+        #     mp_ax = fig.add_subplot(grid[rInd-1,:])
+        #     mp_ax.set_title('Matrix profile for length {} motifs'.format(motiflen), fontsize=fsz)
+        #     submain_ax.plot(x, ysub_adj, color = 'black', label = 'original data')
+        #     submain_ax.plot(xo, yo, color = c(bInd), label = 'outlier data')
+        #     submain_ax.legend()
+        #     noBorders(submain_ax, ['bottom'])
+        #     noBorders(mp_ax, ['top'])
+
+        #     share_ax1 = cur_ax1
+        #     share_ax2 = cur_ax2
+
+        #     print(y.shape, motiflen)
+        #     mp = matrixProfile.stomp(y, motiflen)
+        #     mt, mtd = motifs.motifs(y, mp, max_motifs=topmotifs)
+        #     mp_adj = np.append(mp[0],np.zeros(motiflen-1)+np.nan)
+
+        #     mp_ax.plot(x, mp_adj, color = 'lightblue', label = 'matrix profile')
+
+        #     for moti, (mot, motd) in enumerate(zip(mt, mtd)):
+        #         slices = [slice(m, m+bchar[1], 1) for m in mot]
+        #         intersections = [np.intersect1d(np.arange(*bl), y) for y in [np.arange(s.start, s.stop) for s in slices]]
+        #         ymo = np.array([y[s] for s in slices])
+        #         xmo = np.array([x[s] for s in slices])
+        #         m_ax1 = fig.add_subplot(grid[rInd, 2 + moti*2: 4 + moti*2])
+        #         m_ax1.patch._facecolor = (.9,.9,.9,.2)
+        #         #m_ax1.spines['right'].set_visible(False)
+        #         #m_ax1.spines['left'].set_visible(False)
+        #         share_ax1.get_shared_y_axes().join(share_ax1, m_ax1)
+        #         mcm = lambda x: plt.cm.Greens_r(mpl.colors.Normalize(vmin=-1, vmax=ymo.shape[0]+1)(x))
+        #         isctcm = lambda x: plt.cm.Reds(mpl.colors.Normalize(vmin=-1, vmax=ymo.shape[0]+1)(x))
+        #         for row in range(ymo.shape[0]):
+        #             curcol = mcm(row)
+        #             cury = ymo[row,:]
+        #             curx = xmo[row,:]
+        #             if intersections[row].size != 0:
+        #                 zorder = 20
+        #                 subslice = [sl in intersections[row] for sl in np.arange(slices[row].start, slices[row].stop)]
+        #                 m_ax1.plot(xo, cury, color = 'black', lw=1, zorder = zorder)
+        #                 m_ax1.plot(xo[subslice], cury[subslice], lw=2, color = 'red', zorder = zorder)
+        #                 submain_ax.plot(curx, cury, color = 'y', lw=1, zorder = zorder)
+        #                 submain_ax.plot(curx[subslice], cury[subslice], lw=2, color = 'red', zorder = zorder)
+        #             else:
+        #                 zorder = 9
+        #                 m_ax1.plot(xo, cury, color = curcol, zorder = zorder)
+        #                 submain_ax.plot(curx, cury, color = curcol)
+        #         m_ax2 = fig.add_subplot(grid[rInd + 1, 2 + moti*2: 4 + moti*2])
+        #         m_ax2.patch._facecolor = (.9,.9,.9,.2)
+        #         #m_ax2.spines['top'].set_visible(False)
+        #         m_ax2.set_title('Motif-dist with dist {:2.2f}{}'.format(motd,
+        #                 '' if moti != (len(mt) - 1) else ' (max = {:2.2f})'.format(max(mp[0]))), fontsize=fsz)
+        #         share_ax2.get_shared_y_axes().join(share_ax2, m_ax2)
+        #         bp = m_ax2.boxplot(ymo.transpose(), patch_artist=True)
+        #         for bpi, bpl in enumerate(bp['boxes']):
+        #             if intersections[bpi].size != 0:
+        #                 bpl.set(facecolor='red')
+        #             else:
+        #                 bpl.set(facecolor=mcm(bpi))
+        #         share_ax1 = m_ax1
+        #         share_ax2 = m_ax2
+
+        #     allmotifs_ax = fig.add_subplot(grid[rInd + 1, 1:], xticks = [], yticks=[])
+        #     noBorders(allmotifs_ax)
+        #     share_ax1.get_shared_y_axes().join(share_ax2, allmotifs_ax)
+        #     allmotifs_ax.axhline(bpo['medians'][0]._y[0], c= bpo['medians'][0]._color)
+        #     allmotifs_ax.axhline(bpo['whiskers'][0]._y[1], c= 'lightgrey', alpha = .7)
+        #     allmotifs_ax.axhline(bpo['whiskers'][1]._y[1], c= 'lightgrey', alpha = .7)
+        #     allmotifs_ax.axhline(max(bpo['boxes'][0]._y), c= 'lightgrey', alpha = .7)
+        #     allmotifs_ax.axhline(min(bpo['boxes'][0]._y), c= 'lightgrey', alpha = .7)
+        #     allmotifs_ax.patch.set_alpha(0)
+        # main_ax.legend()

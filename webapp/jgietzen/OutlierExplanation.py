@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-# import matrixprofile
-# from matrixprofile import *
 import lime
 import lime.lime_tabular
 import sklearn
@@ -126,16 +124,58 @@ class OutlierExplanation(Hashable):
                 preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
                 dm = ce.domain_mappers.DomainMapperTabular(preddf.values, feature_names=preddf.columns.values, contrast_names=self.surrogates[bchar[1]].classes_)
                 self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': True}))
+    
+    def getOutlierBlockLengthOfInstance(self, instanceIndex, adjustedToOutlierBlock = False):
+        bl, bchar = [b for b in self.consecBlocks if instanceIndex in range(*b[0])][0]
+        if ~bchar[0]:
+            bl, bchar = self.outlierBlocks[np.argmin([b[1] for _, b in self.outlierBlocks])]
+            print('Careful. I dont have a surrogate for inliers. So I will pick the smallest window length available: {}'.format(bchar[1]))
+        instance = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock).iloc[instanceIndex, :]
+        return bl, bchar, instance
+    
+    def explainLimeInstance(self, instanceIndex, adjustedToOutlierBlock = False, **kwargs):
+        if len(self.lime) == 0:
+            self.fitLime()
+        _, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
+        explanation = self.lime[bchar[1]].explain_instance(instance.values, self.surrogates[bchar[1]].predict_proba, **specificKwargs(kwargs, {'num_features': 5, 'top_labels': 1}))
+        return explanation
+    
+    def explainShapInstance(self, instanceIndex, adjustedToOutlierBlock = False, plot=False, **kwargs):
+        if len(self.shap) == 0:
+            self.fitShap()
+        _, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
+        shap_values = self.shap[bchar[1]].shap_values(instance.values)
+        if plot:
+            exp = (self.shap[bchar[1]].expected_value[0], shap_values[0], np.float64(instance.values))
+            return exp
+        return shap_values
+    
+    def explainContrastiveFoilInstance(self, instanceIndex, **kwargs):
+        if len(self.cfoil) == 0:
+            self.fitContrastiveFoil()
+        _, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
+        if 'domain' in kwargs and specificKwargs(kwargs, {'domain':True})['domain']:
+            exp = self.cfoil[bchar[1]].explain_instance_domain(self.surrogates[bchar[1]].predict_proba, instance)
+        else:
+            exp = self.cfoil[bchar[1]].explain_instance(self.surrogates[bchar[1]].predict_proba, instance)
+        #exp = self.__cfoil.explain_instance_domain(self.__surrogate.predict_proba, instance.iloc[1:])
+        return exp
 
+    def explainAll(self, index):
+        ob = self.outlierBlocks
+        index = index % len(ob)
+        index = ob[index]
+        index = index[0][0] + (index[1][1] // 2)
+        exp=[]
+        exp.append(self.explainLimeInstance(index))
+        log(exp[0])
+        exp.append(self.explainShapInstance(index))
+        log(exp[1])
+        exp.append(self.explainContrastiveFoilInstance(index))
+        log(exp[2])
+        return exp
 
     '''
-    def getCorrectedDataFrame(self, l):
-        return self.featureFrames[l].iloc[:len(self.outlier) - l//2,:]
-    
-    def getShiftCorrectedOutliers(self, l):
-        return self.outlier[l//2:]
-    
-    
     def plotOutlierDistributionConsecutive(self, figAxTup = None, **kwargs):
         fig, ax = plt.subplots(1,1, **specificKwargs(kwargs, {'figsize': self.__figsize})) if figAxTup == None else figAxTup
         #x = self.data.bare_dataframe[[self.data.column_sort]]
@@ -159,53 +199,7 @@ class OutlierExplanation(Hashable):
     
     
     
-   
-    def getOutlierBlockLengthOfInstance(self, instanceIndex):
-        bl, bchar = [b for b in self.consecBlocks if instanceIndex in range(*b[0])][0]
-        if ~bchar[0]:
-            bl, bchar = self.outlierBlocks[np.argmin([b[1] for _, b in self.outlierBlocks])]
-            print('Careful. I dont have a surrogate for inliers. So I will pick the smallest window length available: {}'.format(bchar[1]))
-        instance = self.featureFrames[bchar[1]].drop(columns=[self.data.column_sort, self.data.column_id]).iloc[min(instanceIndex - (bchar[1] // 2), 0), :]
-        return bl, bchar, instance
-        
     
-    def explainLimeInstance(self, instanceIndex, **kwargs):
-        if len(self.lime) == 0:
-            self.fitLime()
-        bl, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
-        explanation = self.lime[bchar[1]].explain_instance(instance.values, self.surrogates[bchar[1]].predict_proba, **specificKwargs(kwargs, {'num_features': 5, 'top_labels': 1}))
-        return explanation
-    
-    def explainShapInstance(self, instanceIndex, plot=False, **kwargs):
-        # print the JS visualization code to the notebook
-        #print(instance.max() >= np.finfo(float).max, instance.min() <= np.finfo(float).min)
-        #print(np.all(np.isfinite(instance)))
-        #print(instance.values[(instance.values) < sys.float_info.min])
-        if len(self.shap) == 0:
-            self.fitShap()
-        bl, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
-        shap_values = self.shap[bchar[1]].shap_values(instance.values)
-        #shap_values = self.__shap.shap_values(instance.values[1:], **specificKwargs(kwargs, {'nsamples': 10, 'l1_reg': False}))
-        if plot:
-            #shap.initjs()
-            # plot the SHAP values for the Setosa output of the first instance
-            exp = (self.shap[bchar[1]].expected_value[0], shap_values[0], np.float64(instance.values))
-            #shap.initjs()
-            #shap.force_plot(exp[0], exp[1], exp[2], link='logit')
-            return exp
-        return shap_values
-    
-    def explainContrastiveFoilInstance(self, instanceIndex, **kwargs):
-        if len(self.cfoil) == 0:
-            self.fitContrastiveFoil()
-        bl, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
-        if 'domain' in kwargs and specificKwargs(kwargs, {'domain':True})['domain']:
-            exp = self.cfoil[bchar[1]].explain_instance_domain(self.surrogates[bchar[1]].predict_proba, instance)
-        else:
-            exp = self.cfoil[bchar[1]].explain_instance(self.surrogates[bchar[1]].predict_proba, instance)
-        #exp = self.__cfoil.explain_instance_domain(self.__surrogate.predict_proba, instance.iloc[1:])
-        return exp
-
     def outlierBlockExplanation(self, bInd = 0, maxFeatures=3, **kwargs):
         blocks = self.outlierBlocks
         bl, bchar = blocks[bInd]

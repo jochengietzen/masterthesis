@@ -45,6 +45,7 @@ def renderTest():
     else:
         data.fitSurrogates()
         data.fitExplainers()
+        exp = data.explainAll(0)
         slid = data.extract_features(windowsize=7, roll=False)
         return [
             html.Div([
@@ -94,5 +95,6 @@ def renderOutlierExplanation():
         # dat, layout = data.plotdataTimeseries()
         return [
             data.plotoutlierExplanationPieChartsGraph(),
-            data.plotOutlierDistributionGraph()
+            data.plotOutlierDistributionGraph(),
+            data.matrixProfileGraph('outliersKnown')
         ]

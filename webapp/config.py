@@ -24,6 +24,10 @@ plotlyConf = dict(
         supersize = {'width': '95vw', 'height': '600px'},
         smallCorner = {'width': '30vw', 'height': '180px'}
     ),
+    lambdastyles = dict(
+        fullsize = lambda n, basesize = 300: {'width': '95vw', 'height': '{}px'.format(basesize * n)},
+        smallCorner = lambda n, basesize = 180: {'width': '30vw', 'height': '{}px'.format(basesize * n)},
+    )
     
 )
 colorpalette = dict(
