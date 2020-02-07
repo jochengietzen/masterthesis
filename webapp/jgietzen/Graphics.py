@@ -37,15 +37,15 @@ from webapp.config import percistency, plotlyConf,  colormap
 #             ]
 
 
-
 def renderTest():
     import dash_table
     exists, data = Data.existsData()
     if not exists:
         return []
     else:
-        slid = data.extract_features(windowsize=5, roll=True)
-        # slid = data.slide(windowsize=5)
+        data.fitSurrogates()
+        data.fitExplainers()
+        slid = data.extract_features(windowsize=7, roll=False)
         return [
             html.Div([
             html.H5(data.originalfilename),
@@ -56,6 +56,25 @@ def renderTest():
             html.Hr(),  # horizontal line
             ])
         ]
+
+# def renderTest():
+#     import dash_table
+#     exists, data = Data.existsData()
+#     if not exists:
+#         return []
+#     else:
+#         slid = data.extract_features(windowsize=5, roll=True)
+#         # slid = data.slide(windowsize=5)
+#         return [
+#             html.Div([
+#             html.H5(data.originalfilename),
+#             dash_table.DataTable(
+#                 data=slid.head(20).to_dict('records'),
+#                 columns=[{'name': i, 'id': i} for i in slid.columns]
+#             ),
+#             html.Hr(),  # horizontal line
+#             ])
+#         ]
 
 def renderTimeseries():
     exists, data = Data.existsData()

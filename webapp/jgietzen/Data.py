@@ -333,11 +333,20 @@ class Data(Hashable):
             # TODO: Investigate again, why you need the decrementation of -1
             self.featureFrames[l] = ret
 
-    def get_feature_frame(self, l):
+    def get_feature_frame(self, l, adjustedToOutlierBlock = False):
+        if adjustedToOutlierBlock == True:
+            # TODO
+            raise NotImplementedError
         self.calc_feature_frame(l)
         return self.featureFrames[l]
 
+    def fitSurrogates(self, adjustedToOutlierBlock = False):
+        for oe in self.outlierExplanations:
+            self.outlierExplanations[oe].fitSurrogate(seed = 1, adjustedToOutlierBlock = adjustedToOutlierBlock)
 
+    def fitExplainers(self, adjustedToOutlierBlock = False):
+        for oe in self.outlierExplanations:
+            self.outlierExplanations[oe].fitExplainers(adjustedToOutlierBlock = adjustedToOutlierBlock)
 
     '''
     Save and load functions

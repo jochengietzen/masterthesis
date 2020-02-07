@@ -2,14 +2,14 @@ import pandas as pd
 import numpy as np
 # import matrixprofile
 # from matrixprofile import *
-# import lime
-# import lime.lime_tabular
-# import sklearn
-# import sklearn.ensemble
-# import shap
+import lime
+import lime.lime_tabular
+import sklearn
+import sklearn.ensemble
+import shap
 # import contrastive_explanation as ce
 
-from webapp.helper import consecutiveDiff, log
+from webapp.helper import consecutiveDiff, log, specificKwargs
 from webapp.jgietzen.Hashable import Hashable
 
 class OutlierExplanation(Hashable):
@@ -69,6 +69,54 @@ class OutlierExplanation(Hashable):
         counts.append(self.npmap({True: 'rgb(250,0,0)', False: 'rgb(0,250,0)'})(counts[0]))
         return counts
     
+    def getOutlierAdjusted(self, adjustedToOutlierBlock = False):
+        if adjustedToOutlierBlock == True:
+            # TODO
+            raise NotImplementedError
+        else:
+            return self.outlier
+
+    def getDataframe(self, windowsize, adjustedToOutlierBlock = False, loseIndexCols = True):
+        preddf = self.parent.get_feature_frame(windowsize, adjustedToOutlierBlock = adjustedToOutlierBlock)
+        if loseIndexCols == True:
+            return preddf.drop(columns=[self.parent.column_sort, self.parent.column_id])
+        return preddf
+    
+    def fitSurrogate(self, adjustedToOutlierBlock = False, **kwargs):
+        # Train a random Forrest Classifier on Features
+        if 'seed' in kwargs:
+            np.random.seed(**specificKwargs(kwargs, {'seed': 1}))
+        for _, bchar in self.outlierBlocks:
+            if bchar[1] not in self.surrogates:
+                self.surrogates[bchar[1]] = sklearn.ensemble.RandomForestClassifier(**specificKwargs(kwargs, {'n_estimators': 500}))
+                self.surrogates[bchar[1]].fit(self.getDataframe(bchar[1], adjustedToOutlierBlock = adjustedToOutlierBlock),
+                             self.npmap({True: 'outlier', False: 'inlier'})(self.getOutlierAdjusted(adjustedToOutlierBlock=adjustedToOutlierBlock)))
+        log('Surrogates trained')
+    
+    def fitLime(self, adjustedToOutlierBlock=False, **kwargs):
+        if len(self.surrogates) == 0:
+            self.fitSurrogate(**kwargs)
+        for _, bchar in self.outlierBlocks:
+            if bchar[1] not in self.lime:
+                preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
+                self.lime[bchar[1]] = lime.lime_tabular.LimeTabularExplainer(preddf.values,
+                                                                 feature_names=preddf.columns.values,
+                                                                 discretize_continuous=True,
+                                                                 class_names=self.surrogates[bchar[1]].classes_)
+
+    def fitShap(self, adjustedToOutlierBlock = False, **kwargs):
+        if len(self.surrogates) == 0:
+            self.fitSurrogate()
+        for bl, bchar in self.outlierBlocks:
+            if bchar[1] not in self.shap:
+                preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
+                self.shap[bchar[1]] = shap.TreeExplainer(self.surrogates[bchar[1]])
+    
+    def fitExplainers(self, adjustedToOutlierBlock = False, **kwargs):
+        self.fitLime(adjustedToOutlierBlock=adjustedToOutlierBlock, **kwargs)
+        self.fitShap(adjustedToOutlierBlock=adjustedToOutlierBlock, **kwargs)
+    
+
     '''
     def getCorrectedDataFrame(self, l):
         return self.featureFrames[l].iloc[:len(self.outlier) - l//2,:]
@@ -76,27 +124,6 @@ class OutlierExplanation(Hashable):
     def getShiftCorrectedOutliers(self, l):
         return self.outlier[l//2:]
     
-    def plotOutlierHistogram(self, figAxTup = None, **kwargs):
-        fig, ax = plt.subplots(1,1, **specificKwargs(kwargs, {'figsize': self.__figsize})) if figAxTup == None else figAxTup
-        hst = ax.hist(self.npmap({True: 1, False: 0})(self.outlier), bins = 100)
-        ax.axhline(y = max(hst[0]), label='#inlier',**specificKwargs(kwargs, {'color': 'g', 'lw':1, 'alpha':.5}))
-        ax.axhline(y = min(hst[0][hst[0] > 0 ]), label='#outlier', **specificKwargs(kwargs, {'color': 'r', 'lw':1, 'alpha':.5}))
-        ax.set_title('Distribution of outliers', **specificKwargs(kwargs, {'fontsize': self.__fontsize}))
-        ax.set_xticks((-2, 0, 1, 3))
-        ax.set_xticklabels((None, 'inlier', 'outlier', None),**specificKwargs(kwargs, {'fontsize': self.__fontsize}))
-        ax.legend(**specificKwargs(kwargs, {'loc':'center right','fontsize': self.__fontsize}))
-        return fig, ax
-    
-    def plotOutlierDistribution(self, figAxTup = None, **kwargs):
-        fig, ax = plt.subplots(1,1, **specificKwargs(kwargs, {'figsize': self.__figsize})) if figAxTup == None else figAxTup
-        #x, y, _ = self.getRelevantDataframeSplit()
-        y = self.outlier_corrected.drop(columns=[self.data.column_sort, self.data.column_id])
-        ax.boxplot(x = y[~self.outlier].values, positions=[0], widths=[.5])
-        ax.boxplot(x = y[self.outlier].values, positions=[1], widths=[.5])
-        ax.set_xticks((0, 1))
-        ax.set_xticklabels(('inliers', 'outliers'), **specificKwargs(kwargs, {'fontsize': self.__fontsize}))
-        ax.set_title('Boxplots inlier vs outlier', **specificKwargs(kwargs, {'fontsize': self.__fontsize}))
-        return fig, ax
     
     def plotOutlierDistributionConsecutive(self, figAxTup = None, **kwargs):
         fig, ax = plt.subplots(1,1, **specificKwargs(kwargs, {'figsize': self.__figsize})) if figAxTup == None else figAxTup
@@ -119,34 +146,8 @@ class OutlierExplanation(Hashable):
         ax.legend(h[0], h[1], **specificKwargs(kwargs, {'loc':'lower right','fontsize': self.__fontsize}))
         return fig, ax
     
-    def fitSurrogate(self, **kwargs):
-        # Train a random Forrest Classifier on Features
-        if 'seed' in kwargs:
-            np.random.seed(**specificKwargs(kwargs, {'seed': 1}))
-        for bl, bchar in self.outlierBlocks:
-            if bchar[1] not in self.surrogates:
-                self.surrogates[bchar[1]] = sklearn.ensemble.RandomForestClassifier(**specificKwargs(kwargs, {'n_estimators': 500}))
-                self.surrogates[bchar[1]].fit(self.getCorrectedDataFrame(bchar[1]).drop(columns=[self.data.column_sort, self.data.column_id]),
-                             self.npmap({True: 'outlier', False: 'inlier'})(self.getShiftCorrectedOutliers(bchar[1])))
     
-    def fitLime(self, **kwargs):
-        if len(self.surrogates) == 0:
-            self.fitSurrogate()
-        for bl, bchar in self.outlierBlocks:
-            if bchar[1] not in self.lime:
-                preddf = self.getCorrectedDataFrame(bchar[1]).drop(columns=[self.data.column_sort, self.data.column_id])
-                self.lime[bchar[1]] = lime.lime_tabular.LimeTabularExplainer(preddf.values,
-                                                                 feature_names=preddf.columns.values,
-                                                                 discretize_continuous=True,
-                                                                 class_names=self.surrogates[bchar[1]].classes_)
     
-    def fitShap(self, **kwargs):
-        if len(self.surrogates) == 0:
-            self.fitSurrogate()
-        for bl, bchar in self.outlierBlocks:
-            if bchar[1] not in self.shap:
-                preddf = self.getCorrectedDataFrame(bchar[1]).drop(columns=[self.data.column_sort, self.data.column_id])
-                self.shap[bchar[1]] = shap.TreeExplainer(self.surrogates[bchar[1]])
     
     def fitContrastiveFoil(self, **kwargs):
         if len(self.surrogates) == 0:
