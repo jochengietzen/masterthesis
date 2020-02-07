@@ -7,7 +7,7 @@ import lime.lime_tabular
 import sklearn
 import sklearn.ensemble
 import shap
-# import contrastive_explanation as ce
+import contrastive_explanation as ce
 
 from webapp.helper import consecutiveDiff, log, specificKwargs
 from webapp.jgietzen.Hashable import Hashable
@@ -104,18 +104,29 @@ class OutlierExplanation(Hashable):
                                                                  discretize_continuous=True,
                                                                  class_names=self.surrogates[bchar[1]].classes_)
 
-    def fitShap(self, adjustedToOutlierBlock = False, **kwargs):
+    def checkFitSurrogate(self):
         if len(self.surrogates) == 0:
             self.fitSurrogate()
-        for bl, bchar in self.outlierBlocks:
+
+    def fitShap(self, adjustedToOutlierBlock = False, **kwargs):
+        self.checkFitSurrogate()
+        for _, bchar in self.outlierBlocks:
             if bchar[1] not in self.shap:
-                preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
                 self.shap[bchar[1]] = shap.TreeExplainer(self.surrogates[bchar[1]])
     
     def fitExplainers(self, adjustedToOutlierBlock = False, **kwargs):
         self.fitLime(adjustedToOutlierBlock=adjustedToOutlierBlock, **kwargs)
         self.fitShap(adjustedToOutlierBlock=adjustedToOutlierBlock, **kwargs)
-    
+        self.fitContrastiveFoil(adjustedToOutlierBlock=adjustedToOutlierBlock)
+     
+    def fitContrastiveFoil(self, adjustedToOutlierBlock = False, **kwargs):
+        self.checkFitSurrogate()
+        for _, bchar in self.outlierBlocks:
+            if bchar[1] not in self.cfoil:
+                preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
+                dm = ce.domain_mappers.DomainMapperTabular(preddf.values, feature_names=preddf.columns.values, contrast_names=self.surrogates[bchar[1]].classes_)
+                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': True}))
+
 
     '''
     def getCorrectedDataFrame(self, l):
@@ -148,16 +159,7 @@ class OutlierExplanation(Hashable):
     
     
     
-    
-    def fitContrastiveFoil(self, **kwargs):
-        if len(self.surrogates) == 0:
-            self.fitSurrogate()
-        for bl, bchar in self.outlierBlocks:
-            if bchar[1] not in self.cfoil:
-                preddf = self.getCorrectedDataFrame(bchar[1]).drop(columns=[self.data.column_sort, self.data.column_id])
-                dm = ce.domain_mappers.DomainMapperTabular(preddf.values, feature_names=preddf.columns.values, contrast_names=self.surrogates[bchar[1]].classes_)
-                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': True}))
-
+   
     def getOutlierBlockLengthOfInstance(self, instanceIndex):
         bl, bchar = [b for b in self.consecBlocks if instanceIndex in range(*b[0])][0]
         if ~bchar[0]:
