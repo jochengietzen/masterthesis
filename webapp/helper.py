@@ -97,3 +97,14 @@ def inspectDict(Class):
     """
     return {att[0]: att[1] for att in inspectTuple(Class)}
     
+def castlist(elem):
+    """
+    Casts any object into list, without making a list into ndlist
+    """
+    if type(elem) == str:
+        return [elem]
+    if type(elem) == type(None):
+        return []
+    if type(elem) == list:
+        return elem
+    return list(elem)

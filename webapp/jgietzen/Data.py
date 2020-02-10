@@ -18,7 +18,7 @@ from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Hashable import Hashable, cache
 from webapp.jgietzen.Threading import threaded
-from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap
+from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
 
 class Data(Hashable):
     __tsID = 'tsid'
@@ -73,7 +73,7 @@ class Data(Hashable):
             for col in self.column_outlier:
                 self.initOutlierExplanation(col)
     
-    @threaded
+    # @threaded
     def initOutlierExplanation(self, col):
         dat = self.dataWithOutlier
         assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
@@ -259,7 +259,13 @@ class Data(Hashable):
         return dict(
             column_id=self.column_id, column_sort=self.column_sort,
             # column_kind=self.column_id,
-            default_fc_parameters={'maximum':None, 'minimum':None}
+            default_fc_parameters={
+                'maximum':None,
+                'minimum':None,
+                'median': None,
+                'mean': None,
+                'length': None,
+                }
         )
 
     def getRolledTimestamps(self, windowsize):
@@ -550,41 +556,41 @@ class Data(Hashable):
         self.recalculateOutlierExplanations()
         l = len(self.column_outlier)
         fig = None
-        if l == 1:
-            cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
-            fig = go.Figure(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
-        elif l > 1:
-            rows, cols = 1, l
-            l2 = l/2 if l > breakAfterXCharts else l
-            if l > breakAfterXCharts:
-                rows, cols = 2, math.ceil(l2)
-            fig = make_subplots(rows, cols,
-                    print_grid=True,
-                    specs=[[{"type": 'domain'} for col in range(cols)] for r in range(rows)]
-                )
-            row, column = 1, 0
-            for _, col in enumerate(self.column_outlier):
-                column += 1
-                if column > l2:
-                    row +=1
-                    column = 1
-                cs = self.outlierExplanations[col].getOutlierPartitions
-                fig.add_trace(go.Pie(
-                    title=dict(text=col, position='bottom center'),
-                    showlegend=False,
-                    values=cs[1],
-                    name=col,
-                    marker=dict(colors=cs[4]),
-                    labels = ['{} {}'.format(col, c) for c in cs[2]],
-                ), row, column)
-            fig.update_layout(
-                margin=go.layout.Margin(
-                    l=0,
-                    r=0,
-                    b=0,
-                    t=0,
-                    pad=0
-                ))
+        # if l == 1:
+        #     cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
+        #     fig = go.Figure(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
+        # elif l > 1:
+        rows, cols = 1, l
+        l2 = l/2 if l > breakAfterXCharts else l
+        if l > breakAfterXCharts:
+            rows, cols = 2, math.ceil(l2)
+        fig = make_subplots(rows, cols,
+                print_grid=True,
+                specs=[[{"type": 'domain'} for col in range(cols)] for r in range(rows)]
+            )
+        row, column = 1, 0
+        for _, col in enumerate(self.column_outlier):
+            column += 1
+            if column > l2:
+                row +=1
+                column = 1
+            cs = self.outlierExplanations[col].getOutlierPartitions
+            fig.add_trace(go.Pie(
+                title=dict(text=col, position='bottom center'),
+                showlegend=False,
+                values=cs[1],
+                name=col,
+                marker=dict(colors=cs[4]),
+                labels = ['{} {}'.format(col, c) for c in cs[2]],
+            ), row, column)
+        fig.update_layout(
+            margin=go.layout.Margin(
+                l=0,
+                r=0,
+                b=10,
+                t=10,
+                pad=0
+            ))
         return fig
         
     @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
@@ -662,7 +668,7 @@ class Data(Hashable):
         if type(x) == type(None):
             x = self.timestamps
         if type(y) == type(None):
-            y = self.data[list(col)].values.flatten()
+            y = self.data[castlist(col)].values.flatten()
         return go.Scatter(
             x = x,
             y = y,
@@ -670,7 +676,7 @@ class Data(Hashable):
         )
 
     def matrixprofile(self, col, motiflen):
-        mp = matrixProfile.stomp(self.data[list(col)].values.flatten(), motiflen)
+        mp = matrixProfile.stomp(self.data[castlist(col)].values.flatten(), motiflen)
         return self.scatter(y = mp[0], name = 'matrixprofile (len {})'.format(motiflen))
 
     def outlierShapes(self, relCol, outCol):
@@ -685,7 +691,7 @@ class Data(Hashable):
                 line = dict(color = 'rgb(255,0,0)')
             )
         tstmps = self.timestamps
-        relData = self.data[list(relCol)].values.flatten()
+        relData = self.data[castlist(relCol)].values.flatten()
         xs = [
             dict(
                 x0=tstmps[bl[0]],
@@ -696,19 +702,21 @@ class Data(Hashable):
         return [shape(**x) for x in xs]
 
 
-    def matrixProfileFigure(self, outcol, topmotifs = 3, onlyFirstActiveByDefault = True):
-        l = len(self.outlierExplanations[outcol].outlierBlocks)
+    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = False):
+        oe = self.outlierExplanations[outcol]
+        l = len(oe.outlierBlocks)
         linesPerPlot = 4
-        rows, cols = 4, topmotifs + 1
+        rows, cols = 2 + l, topmotifs + 1
         # rows, cols = l * linesPerPlot, (topmotifs + 1) * 2
         specs = [[None] * cols for row in range(rows)]
         # specs[0][0] = dict(rowspan=1, colspan = cols)
         for row in range(rows):
-            if row % linesPerPlot in [0, 1]:
-                specs[row][0] = dict(rowspan = 1, colspan = cols)
-            else:
-                for c in range(0, cols, 2):
-                    specs[row][c] = dict(colspan = min(cols, 2), rowspan = 1)
+            specs[row][0] = dict(rowspan = 1, colspan = cols)
+            # if row % linesPerPlot in [0, 1]:
+            #     specs[row][0] = dict(rowspan = 1, colspan = cols)
+            # else:
+            #     for c in range(0, cols, 2):
+            #         specs[row][c] = dict(colspan = min(cols, 2), rowspan = 1)
         # log(specs)
         fig = make_subplots(rows, cols,
             specs = specs,
@@ -718,11 +726,11 @@ class Data(Hashable):
         )
         relcol = self.relevant_columns[0]
         fig.add_trace(self.scatter(relcol, name='Timeseries'), row = 1, col= 1)
-        motiflens = np.sort(np.unique(self.outlierExplanations[outcol].outlierBlocksLengths))
+        motiflens = np.sort(np.unique(oe.outlierBlocksLengths))
         lins = np.linspace(150, 255, len(motiflens))
         reds = {l: (lambda lin: lambda alpha: 'rgba({}, 0, 0, {})'.format(lin, alpha))(int(lins[li])) for li, l in enumerate(motiflens)}
         outlierShapes = self.outlierShapes(relcol, outcol)
-        for currentBlockIndex, (bl, bChar) in enumerate(self.outlierExplanations[outcol].outlierBlocks):
+        for currentBlockIndex, (bl, bChar) in enumerate(oe.outlierBlocks):
             outlierShape = outlierShapes[currentBlockIndex]
             currentBlockLength = bChar[1]
             red = reds[currentBlockLength]
@@ -741,124 +749,21 @@ class Data(Hashable):
                 mp.visible = 'legendonly' if ind > 0 else True
             fig.add_trace(mp, row = 2, col = 1)
 
-        currentBlockIndex = 0
-        exp = self.outlierExplanations[outcol].explainLimeInstance(currentBlockIndex)
-        exp2 = self.outlierExplanations[outcol].explainLimeInstance(260)
+        for currentBlockIndex, (bl, bChar) in enumerate(oe.outlierBlocks):
+            explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
+            if 1 not in explainedFeatures:
+                continue
+            explainedFeatures = explainedFeatures[1]
+            explainedFeatures = explainedFeatures[:min(len(explainedFeatures),topExplanations)]
+            df = oe.getDataframe(bChar[1])
+            for ef in explainedFeatures:
+                y = df[ef[0]]
+                scat = self.scatter(y=y)
+                scat.name = '{} ({:.3f})'.format(*ef)
+                if onlyFirstActiveByDefault:
+                    scat.visible = 'legendonly' if currentBlockIndex > 0 else True
+                elif ef[1] <= thresholdLime:
+                    scat.visible = 'legendonly'
+                fig.add_trace(scat, row = 3 + currentBlockIndex, col = 1)
+            print(explainedFeatures)
         return fig
-        # tsid = 0
-        # i = 8
-        # topmotifs = 3
-        # fsz = 16
-        # # Get the current combination
-        # cdf = self.data.bare_dataframe[self.data.bare_dataframe[self.data.column_id] == tsid]
-        # #x,y,out,outliers,colname = getCombination(i)
-        # x = cdf[self.data.column_sort].values
-        # y = cdf.drop(columns = [self.data.column_id, self.data.column_sort]).values.flatten()
-        # # Get the consecutive subseries of same category
-        # blocks = self.consecBlocks
-        # # Only get the subseries which are outliers and have a percentage (=50) % length of windowsize (=30)
-        # outblocks = self.outlierBlocks
-        # # Define cholorscheme for outliers
-        # c = lambda x: plt.cm.Reds(mpl.colors.Normalize(vmin=-1, vmax=len(outblocks))(x))
-        # noBorders = lambda axis, borders = ['top', 'bottom', 'left', 'right']: list(map(lambda x: axis.spines[x].set_visible(False), borders))
-
-        # fig = plt.figure(figsize=(30,20 * len(outblocks)))
-        # print('Showing the outlier subseries found compared to the top {} motifs of same length'.format(topmotifs))
-        # grid = plt.GridSpec(1 + len(outblocks) * 4, (topmotifs + 1) * 2, hspace= .2, wspace = .2)
-        # main_ax = fig.add_subplot(grid[0,:])
-        # y_adj = y.copy()
-        # y_adj[[x for bl, bc in outblocks for x in list(range(bl[0] + 1, bl[1] - 1))]] = np.nan
-        # main_ax.plot(x, y_adj, color='black', label = 'original data')
-        # main_ax.set_title('Original data and found outlier subseries', fontsize = fsz)
-        # for bInd, (bl, bchar) in enumerate(outblocks):
-        #     bl2 = (bl[0] - 1, bl[1] + 1)
-        #     motiflen = bchar[1]
-        #     xo = x[range(*bl)]
-        #     yo = y[range(*bl)]
-        #     ysub_adj = y.copy()
-        #     ysub_adj[range(bl[0] + 1, bl[1] - 1)] = np.nan
-        #     main_ax.plot(x[range(*bl)], y[range(*bl)], color=c(bInd), label = 'Outlier subseries')
-        #     rInd = 4 * bInd + 3
-
-        #     border0 = fig.add_subplot(grid[rInd-2:rInd+2, :], xticks =[], yticks = [])
-        #     border1 = fig.add_subplot(grid[rInd:rInd+2, 0:2], xticks =[], yticks = [])
-        #     border1.set_title('Outlier subseries of length {}'.format(motiflen), fontsize = fsz)
-        #     cur_ax1 = fig.add_subplot(grid[rInd, 0:2])
-        #     cur_ax1.plot(xo, yo, color=c(bInd))
-        #     cur_ax2 = fig.add_subplot(grid[rInd + 1, 0:2])
-        #     bpo = cur_ax2.boxplot(yo)
-        #     cur_ax2.set_title('Distribution of subseries', fontsize=fsz)
-        #     border2 = fig.add_subplot(grid[rInd:rInd+2, 2:], xticks =[], yticks = [])
-        #     border2.set_title('Corresponding top {} motifs derived by MP with length {}'.format(topmotifs, motiflen), fontsize=fsz)
-
-        #     submain_ax = fig.add_subplot(grid[rInd-2, :], xticks=[])
-        #     mp_ax = fig.add_subplot(grid[rInd-1,:])
-        #     mp_ax.set_title('Matrix profile for length {} motifs'.format(motiflen), fontsize=fsz)
-        #     submain_ax.plot(x, ysub_adj, color = 'black', label = 'original data')
-        #     submain_ax.plot(xo, yo, color = c(bInd), label = 'outlier data')
-        #     submain_ax.legend()
-        #     noBorders(submain_ax, ['bottom'])
-        #     noBorders(mp_ax, ['top'])
-
-        #     share_ax1 = cur_ax1
-        #     share_ax2 = cur_ax2
-
-        #     print(y.shape, motiflen)
-        #     mp = matrixProfile.stomp(y, motiflen)
-        #     mt, mtd = motifs.motifs(y, mp, max_motifs=topmotifs)
-        #     mp_adj = np.append(mp[0],np.zeros(motiflen-1)+np.nan)
-
-        #     mp_ax.plot(x, mp_adj, color = 'lightblue', label = 'matrix profile')
-
-        #     for moti, (mot, motd) in enumerate(zip(mt, mtd)):
-        #         slices = [slice(m, m+bchar[1], 1) for m in mot]
-        #         intersections = [np.intersect1d(np.arange(*bl), y) for y in [np.arange(s.start, s.stop) for s in slices]]
-        #         ymo = np.array([y[s] for s in slices])
-        #         xmo = np.array([x[s] for s in slices])
-        #         m_ax1 = fig.add_subplot(grid[rInd, 2 + moti*2: 4 + moti*2])
-        #         m_ax1.patch._facecolor = (.9,.9,.9,.2)
-        #         #m_ax1.spines['right'].set_visible(False)
-        #         #m_ax1.spines['left'].set_visible(False)
-        #         share_ax1.get_shared_y_axes().join(share_ax1, m_ax1)
-        #         mcm = lambda x: plt.cm.Greens_r(mpl.colors.Normalize(vmin=-1, vmax=ymo.shape[0]+1)(x))
-        #         isctcm = lambda x: plt.cm.Reds(mpl.colors.Normalize(vmin=-1, vmax=ymo.shape[0]+1)(x))
-        #         for row in range(ymo.shape[0]):
-        #             curcol = mcm(row)
-        #             cury = ymo[row,:]
-        #             curx = xmo[row,:]
-        #             if intersections[row].size != 0:
-        #                 zorder = 20
-        #                 subslice = [sl in intersections[row] for sl in np.arange(slices[row].start, slices[row].stop)]
-        #                 m_ax1.plot(xo, cury, color = 'black', lw=1, zorder = zorder)
-        #                 m_ax1.plot(xo[subslice], cury[subslice], lw=2, color = 'red', zorder = zorder)
-        #                 submain_ax.plot(curx, cury, color = 'y', lw=1, zorder = zorder)
-        #                 submain_ax.plot(curx[subslice], cury[subslice], lw=2, color = 'red', zorder = zorder)
-        #             else:
-        #                 zorder = 9
-        #                 m_ax1.plot(xo, cury, color = curcol, zorder = zorder)
-        #                 submain_ax.plot(curx, cury, color = curcol)
-        #         m_ax2 = fig.add_subplot(grid[rInd + 1, 2 + moti*2: 4 + moti*2])
-        #         m_ax2.patch._facecolor = (.9,.9,.9,.2)
-        #         #m_ax2.spines['top'].set_visible(False)
-        #         m_ax2.set_title('Motif-dist with dist {:2.2f}{}'.format(motd,
-        #                 '' if moti != (len(mt) - 1) else ' (max = {:2.2f})'.format(max(mp[0]))), fontsize=fsz)
-        #         share_ax2.get_shared_y_axes().join(share_ax2, m_ax2)
-        #         bp = m_ax2.boxplot(ymo.transpose(), patch_artist=True)
-        #         for bpi, bpl in enumerate(bp['boxes']):
-        #             if intersections[bpi].size != 0:
-        #                 bpl.set(facecolor='red')
-        #             else:
-        #                 bpl.set(facecolor=mcm(bpi))
-        #         share_ax1 = m_ax1
-        #         share_ax2 = m_ax2
-
-        #     allmotifs_ax = fig.add_subplot(grid[rInd + 1, 1:], xticks = [], yticks=[])
-        #     noBorders(allmotifs_ax)
-        #     share_ax1.get_shared_y_axes().join(share_ax2, allmotifs_ax)
-        #     allmotifs_ax.axhline(bpo['medians'][0]._y[0], c= bpo['medians'][0]._color)
-        #     allmotifs_ax.axhline(bpo['whiskers'][0]._y[1], c= 'lightgrey', alpha = .7)
-        #     allmotifs_ax.axhline(bpo['whiskers'][1]._y[1], c= 'lightgrey', alpha = .7)
-        #     allmotifs_ax.axhline(max(bpo['boxes'][0]._y), c= 'lightgrey', alpha = .7)
-        #     allmotifs_ax.axhline(min(bpo['boxes'][0]._y), c= 'lightgrey', alpha = .7)
-        #     allmotifs_ax.patch.set_alpha(0)
-        # main_ax.legend()

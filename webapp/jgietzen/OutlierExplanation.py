@@ -8,7 +8,7 @@ import shap
 import contrastive_explanation as ce
 
 from webapp.helper import consecutiveDiff, log, specificKwargs
-from webapp.jgietzen.Hashable import Hashable
+from webapp.jgietzen.Hashable import Hashable, cache
 
 class OutlierExplanation(Hashable):
     npmap = lambda self, mapping: np.vectorize(lambda a: mapping[a] if a in mapping else a)
@@ -142,11 +142,15 @@ class OutlierExplanation(Hashable):
         instance = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock).iloc[instanceIndex, :]
         return bl, bchar, instance
     
-    def explainLimeInstance(self, instanceIndex, adjustedToOutlierBlock = False, **kwargs):
+    def explainLimeInstance(self, instanceIndex, adjustedToOutlierBlock = False, mapExplain = True, **kwargs):
         if len(self.lime) == 0:
             self.fitLime()
         _, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
         explanation = self.lime[bchar[1]].explain_instance(instance.values, self.surrogates[bchar[1]].predict_proba, **specificKwargs(kwargs, {'num_features': 5, 'top_labels': 1}))
+        if mapExplain:
+            feat_cols = self.getDataframe(bchar[1]).columns.tolist()
+            explanation = explanation.as_map()
+            explanation = {i: [(feat_cols[c[0]], c[1]) for c in explanation[i]] for i in explanation}
         return explanation
     
     def explainShapInstance(self, instanceIndex, adjustedToOutlierBlock = False, plot=False, **kwargs):
