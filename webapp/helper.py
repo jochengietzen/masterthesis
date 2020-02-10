@@ -2,8 +2,14 @@ import numpy as np
 import pandas as pd
 import math
 import inspect as ins
+import os
 
 
+def envCheck(env, alternative = None):
+    return os.environ[env] if env in os.environ else alternative
+
+def envValueCheck(env, value):
+    return envCheck(env) == value
 
 def log(*args):
     import sys
