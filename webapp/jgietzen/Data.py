@@ -648,12 +648,13 @@ class Data(Hashable):
             getattr(fig.layout, yaxis).showticklabels = True
         return fig
 
-    def matrixProfileGraph(self, outcol):
-        l = len(self.outlierExplanations[outcol].outlierBlocks)
-        return dcc.Graph(id='timeseries-graph',
+    def matrixProfileGraph(self, outcol, topmotifs = 3):
+        self.recalculateOutlierExplanations()
+        # l = len(self.outlierExplanations[outcol].outlierBlocks)
+        return dcc.Graph(id='matrixprofile-timeseries-graph',
                 config = plotlyConf['config'],
-                style= plotlyConf['lambdastyles']['fullsize'](l, 500),
-                figure = self.matrixProfileFigure(outcol)
+                style= plotlyConf['lambdastyles']['fullsize'](4, 200),
+                figure = self.matrixProfileFigure(outcol, topmotifs=topmotifs)
             )
 
     def scatter(self, col=None, x = None, y = None, name = None):
@@ -672,19 +673,43 @@ class Data(Hashable):
         mp = matrixProfile.stomp(self.data[list(col)].values.flatten(), motiflen)
         return self.scatter(y = mp[0], name = 'matrixprofile (len {})'.format(motiflen))
 
-    def matrixProfileFigure(self, outcol, topmotifs = 3):
+    def outlierShapes(self, relCol, outCol):
+        self.recalculateOutlierExplanations()
+        blocks = self.outlierExplanations[outCol].outlierBlocks
+        def shape(x0, y0, x1, y1):
+            return go.Scatter(
+                x = [x0, x1, x1, x0, x0],
+                y = [y0, y0, y1, y1, y0],
+                fill = 'toself',
+                marker = dict(opacity = 0),
+                line = dict(color = 'rgb(255,0,0)')
+            )
+        tstmps = self.timestamps
+        relData = self.data[list(relCol)].values.flatten()
+        xs = [
+            dict(
+                x0=tstmps[bl[0]],
+                y0=np.min(relData[slice(*bl)]),
+                x1=tstmps[bl[1]],
+                y1=np.max(relData[slice(*bl)])
+            ) for bl, bChar in blocks]
+        return [shape(**x) for x in xs]
+
+
+    def matrixProfileFigure(self, outcol, topmotifs = 3, onlyFirstActiveByDefault = True):
         l = len(self.outlierExplanations[outcol].outlierBlocks)
         linesPerPlot = 4
-        rows, cols = l * linesPerPlot, (topmotifs + 1) * 2
+        rows, cols = 4, topmotifs + 1
+        # rows, cols = l * linesPerPlot, (topmotifs + 1) * 2
         specs = [[None] * cols for row in range(rows)]
         # specs[0][0] = dict(rowspan=1, colspan = cols)
-        for row in range(l*linesPerPlot):
+        for row in range(rows):
             if row % linesPerPlot in [0, 1]:
                 specs[row][0] = dict(rowspan = 1, colspan = cols)
             else:
                 for c in range(0, cols, 2):
-                    specs[row][c] = dict(colspan = 2, rowspan = 1)
-        log(specs)
+                    specs[row][c] = dict(colspan = min(cols, 2), rowspan = 1)
+        # log(specs)
         fig = make_subplots(rows, cols,
             specs = specs,
             print_grid=True,
@@ -692,9 +717,33 @@ class Data(Hashable):
             shared_yaxes=True
         )
         relcol = self.relevant_columns[0]
-        currentBlockLength = self.outlierExplanations[outcol].outlierBlocks[0][1][1]
         fig.add_trace(self.scatter(relcol, name='Timeseries'), row = 1, col= 1)
-        fig.add_trace(self.matrixprofile(col = relcol, motiflen = currentBlockLength), row = 2, col = 1)
+        motiflens = np.sort(np.unique(self.outlierExplanations[outcol].outlierBlocksLengths))
+        lins = np.linspace(150, 255, len(motiflens))
+        reds = {l: (lambda lin: lambda alpha: 'rgba({}, 0, 0, {})'.format(lin, alpha))(int(lins[li])) for li, l in enumerate(motiflens)}
+        outlierShapes = self.outlierShapes(relcol, outcol)
+        for currentBlockIndex, (bl, bChar) in enumerate(self.outlierExplanations[outcol].outlierBlocks):
+            outlierShape = outlierShapes[currentBlockIndex]
+            currentBlockLength = bChar[1]
+            red = reds[currentBlockLength]
+            outlierShape.line.color = red(.3)
+            outlierShape.name = 'outlier block'
+            if onlyFirstActiveByDefault:
+                outlierShape.visible = 'legendonly' if currentBlockIndex > 0 else True
+            outlierShape.legendgroup = 'len {}'.format(currentBlockLength)
+            fig.add_trace(outlierShape, row = 1, col = 1)
+        for ind, motiflen in enumerate(motiflens):
+            mp = self.matrixprofile(col = relcol, motiflen = motiflen)
+            mp.legendgroup = 'len {}'.format(motiflen)
+            # mp.name = 'matrixplot'
+            mp.marker.color = reds[motiflen](1)
+            if onlyFirstActiveByDefault:
+                mp.visible = 'legendonly' if ind > 0 else True
+            fig.add_trace(mp, row = 2, col = 1)
+
+        currentBlockIndex = 0
+        exp = self.outlierExplanations[outcol].explainLimeInstance(currentBlockIndex)
+        exp2 = self.outlierExplanations[outcol].explainLimeInstance(260)
         return fig
         # tsid = 0
         # i = 8

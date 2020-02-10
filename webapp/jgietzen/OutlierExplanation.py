@@ -54,6 +54,15 @@ class OutlierExplanation(Hashable):
         blocks = [block for block in blocks if block[1][0] and block[1][1] >= self.minimumOutliers]
         return blocks
     
+    @property
+    def consecBlocksLengths(self):
+        return [bChar[1] for _, bChar in self.consecBlocks]
+
+
+    @property
+    def outlierBlocksLengths(self):
+        return [bChar[1] for _, bChar in self.outlierBlocks]
+
     def makeFeatureFrames(self):
         lens = [bchar[1] for bl, bchar in self.outlierBlocks]
         for l in np.unique(lens):

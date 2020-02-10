@@ -94,7 +94,8 @@ def renderOutlierExplanation():
     else:
         # dat, layout = data.plotdataTimeseries()
         return [
-            data.plotoutlierExplanationPieChartsGraph(),
-            data.plotOutlierDistributionGraph(),
+            html.Div(id='nowhere', hidden = True),
+            # data.plotoutlierExplanationPieChartsGraph(),
+            # data.plotOutlierDistributionGraph(),
             data.matrixProfileGraph('outliersKnown')
         ]

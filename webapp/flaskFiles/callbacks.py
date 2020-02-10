@@ -8,6 +8,7 @@ from datetime import timedelta
 import sys
 from webapp.helper import log
 from webapp.config import dir_sessions
+import json
 
 from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlierExplanation
 
@@ -34,6 +35,12 @@ def render_tab(tab):
     elif tab == 'tab-4':
         return renderTest()
 
+# @app.callback(
+#     Output('nowhere', 'children'),
+#     [Input('matrixprofile-timeseries-graph', 'hoverData')])
+# def display_hover_data(hoverData):
+#     log(json.dumps(hoverData, indent=2))
+#     return []
 
 # @app.server.route('/visits-counter/')
 # def visits():
