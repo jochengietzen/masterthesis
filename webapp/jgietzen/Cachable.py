@@ -4,7 +4,7 @@ from webapp.helper import inspectDict
 
 def cache(payAttentionTo = None, ignore = None):
     '''
-    Decorator Function to hash functions of objects of (sub)type Hashable
+    Decorator Function to hash functions of objects of (sub)type Cachable
 
     Will return the last cached result without executing the function,
     iff it has been calculated with the same kwargs already. 
@@ -21,7 +21,7 @@ def cache(payAttentionTo = None, ignore = None):
     ignore : list, optional, default = None
         A list of strings containing attribute names of the class,
         that should be ignored for the decorated function. The 
-        superclass Hashable allows you to set a always track option 
+        superclass Cachable allows you to set a always track option 
         of attributes. But if only this decorated function is 
         independent of the always tracked attribute, one can ignore
         it with that option.
@@ -34,12 +34,12 @@ def cache(payAttentionTo = None, ignore = None):
 
     See Also
     --------
-    webapp.jgietzen.Hashable Hashable: Class that defines the cache
+    webapp.jgietzen.Cachable Cachable: Class that defines the cache
 
    
     Examples
     --------
-    >>> Foo(Hashable):
+    >>> Foo(Cachable):
     >>>     def __init__(self):
     >>>         super().__init__()
     >>>         self.bar = 'biz'
@@ -66,7 +66,7 @@ def cache(payAttentionTo = None, ignore = None):
                 parent = args[0]
             except:
                 raise
-            assert isinstance(parent, Hashable), 'Only Hashable datatypes are possible'
+            assert isinstance(parent, Cachable), 'Only Cachable datatypes are possible'
             kwargsToCheck = [l for l in list(func.__code__.co_varnames) if l != 'self']
             interestingKwargs = {}
             if type(kwargsToCheck) != type(None):
@@ -84,20 +84,20 @@ def cache(payAttentionTo = None, ignore = None):
                 for attr in [att for att in castlist(parent.alwaysCheck) if att not in ignored]:
                     if attr not in interestingKwargs and '{}{}'.format(localAttribute, attr) not in interestingKwargs:
                         interestingKwargs['{}{}'.format(globalAttribute,attr)] = '{}'.format(parDict[attr] if attr in parDict else 'None')
-            hashable = '{}__{}'.format(func.__name__, '__'.join(['{}_{}'.format(k, interestingKwargs[k]) for k in interestingKwargs]))
+            cachable = '{}__{}'.format(func.__name__, '__'.join(['{}_{}'.format(k, interestingKwargs[k]) for k in interestingKwargs]))
             if len(args) > 1:
-                hashable += '__args__{}'.format('_'.join(str(arg) for arg in args[1:]))
-            already, ret = parent.isHashedAlready(hashable)
+                cachable += '__args__{}'.format('_'.join(str(arg) for arg in args[1:]))
+            already, ret = parent.isHashedAlready(cachable)
             if already:
                 return ret
             result = func(*args, **kwargs)
-            parent.insertNewResult(hashable, result)
+            parent.insertNewResult(cachable, result)
             return result
         return wrapper_do_function
     return _cache
 
 
-class Hashable:
+class Cachable:
     '''
     Class that implements a hashtable like cache
 
@@ -111,7 +111,7 @@ class Hashable:
         Defines the maximum cache space in MB of your Class object
     
     verbose : bool, optional, default = True
-        If True, Hashable will produce information output
+        If True, Cachable will produce information output
     
     alwaysCheck : list, optional, default = None
         A list of strings with the attribute names of your class,
@@ -121,14 +121,14 @@ class Hashable:
 
     See Also
     --------
-    webapp.jgietzen.Hashable cache: Decorator function
+    webapp.jgietzen.Cachable cache: Decorator function
 
 
     ...
 
     Examples
     --------
-    >>> Foo(Hashable):
+    >>> Foo(Cachable):
     >>>     def __init__(self):
     >>>         super().__init__()
     >>>         self.bar = 'biz'
@@ -160,19 +160,19 @@ class Hashable:
         self.verbose = verbose
         self.alwaysCheck = alwaysCheck
     
-    def isHashedAlready(self, hashable):
+    def isHashedAlready(self, cachable):
         '''
         Function that checks if the function was already calculated and
         saved. Returns boolean about the check and the return value of 
         the function, iff exists, otherwise None. 
         '''
-        exists = hashable in self.internalStore
+        exists = cachable in self.internalStore
         if self.verbose and exists:
             log('Reuse result from earlier with')
-            log('\t{}'.format(hashable))
-        return exists, self.internalStore[hashable] if exists else None
+            log('\t{}'.format(cachable))
+        return exists, self.internalStore[cachable] if exists else None
     
-    def insertNewResult(self, hashable, result):
+    def insertNewResult(self, cachable, result):
         size = sys.getsizeof(self.internalStore)
         for key in self.internalStore:
             size += sys.getsizeof(self.internalStore[key])
@@ -184,4 +184,4 @@ class Hashable:
             keys = list(self.internalStore.keys())
             for key in keys:
                 del self.internalStore[key]
-        self.internalStore[hashable] = result
+        self.internalStore[cachable] = result

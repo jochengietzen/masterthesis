@@ -8,9 +8,9 @@ import shap
 import contrastive_explanation as ce
 
 from webapp.helper import consecutiveDiff, log, specificKwargs
-from webapp.jgietzen.Hashable import Hashable, cache
+from webapp.jgietzen.Cachable import Cachable, cache
 
-class OutlierExplanation(Hashable):
+class OutlierExplanation(Cachable):
     npmap = lambda self, mapping: np.vectorize(lambda a: mapping[a] if a in mapping else a)
     surrogates = {}
     lime = {}

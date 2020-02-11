@@ -16,11 +16,11 @@ from webapp.config import dir_datafiles
 from webapp.config import colormap, plotlyConf
 from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
-from webapp.jgietzen.Hashable import Hashable, cache
+from webapp.jgietzen.Cachable import Cachable, cache
 from webapp.jgietzen.Threading import threaded
 from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
 
-class Data(Hashable):
+class Data(Cachable):
     __tsID = 'tsid'
     __tsTstmp = 'tststmp'
     __colOut = 'outlierColumns'
