@@ -45,7 +45,7 @@ def renderTest():
     else:
         data.fitSurrogates()
         data.fitExplainers()
-        exp = data.explainAll(0)
+        _ = data.explainAll(0)
         slid = data.extract_features(windowsize=7, roll=False)
         return [
             html.Div([
