@@ -340,12 +340,13 @@ class Data(Hashable):
             # TODO: Investigate again, why you need the decrementation of -1
             self.featureFrames[l] = ret
 
-    def get_feature_frame(self, l, adjustedToOutlierBlock = False):
+    @cache(payAttentionTo=['relevant_columns'])
+    def get_feature_frame(self, windowsize, adjustedToOutlierBlock = False):
         if adjustedToOutlierBlock == True:
             # TODO
             raise NotImplementedError
-        self.calc_feature_frame(l)
-        return self.featureFrames[l]
+        self.calc_feature_frame(windowsize)
+        return self.featureFrames[windowsize]
 
     def fitSurrogates(self, adjustedToOutlierBlock = False):
         for oe in self.outlierExplanations:
@@ -770,5 +771,5 @@ class Data(Hashable):
             row = 1 + rrow
             fig.update_xaxes(dict(matches='x{}'.format(row)), row=1, col=1)
             fig.update_xaxes(dict(matches='x'), row=row, col=1)
-            
+
         return fig

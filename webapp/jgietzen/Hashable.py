@@ -1,5 +1,5 @@
 import sys
-from webapp.helper import log
+from webapp.helper import log, castlist
 from webapp.helper import inspectDict
 
 def cache(payAttentionTo = None, ignore = None):
@@ -76,15 +76,17 @@ def cache(payAttentionTo = None, ignore = None):
             parDict = inspectDict(parent)
             localAttribute = 'attr-loc-'
             if payAttentionTo != None:
-                for attr in list(payAttentionTo):
+                for attr in castlist(payAttentionTo):
                     interestingKwargs['{}{}'.format(localAttribute, attr)] = '{}'.format(parDict[attr] if attr in parDict else 'None')
             ignored = list(ignore) if type(ignore) != type(None) else []
             globalAttribute = 'attr-glo-'
             if parent.alwaysCheck != None:
-                for attr in [att for att in list(parent.alwaysCheck) if att not in ignored]:
+                for attr in [att for att in castlist(parent.alwaysCheck) if att not in ignored]:
                     if attr not in interestingKwargs and '{}{}'.format(localAttribute, attr) not in interestingKwargs:
                         interestingKwargs['{}{}'.format(globalAttribute,attr)] = '{}'.format(parDict[attr] if attr in parDict else 'None')
             hashable = '{}__{}'.format(func.__name__, '__'.join(['{}_{}'.format(k, interestingKwargs[k]) for k in interestingKwargs]))
+            if len(args) > 1:
+                hashable += '__args__{}'.format('_'.join(str(arg) for arg in args[1:]))
             already, ret = parent.isHashedAlready(hashable)
             if already:
                 return ret

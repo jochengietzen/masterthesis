@@ -84,7 +84,7 @@ class OutlierExplanation(Hashable):
             return self.outlier
 
     def getDataframe(self, windowsize, adjustedToOutlierBlock = False, loseIndexCols = True):
-        preddf = self.parent.get_feature_frame(windowsize, adjustedToOutlierBlock = adjustedToOutlierBlock)
+        preddf = self.parent.get_feature_frame(windowsize=windowsize, adjustedToOutlierBlock = adjustedToOutlierBlock)
         if loseIndexCols == True:
             return preddf.drop(columns=[self.parent.column_sort, self.parent.column_id])
         return preddf
