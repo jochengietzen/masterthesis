@@ -97,5 +97,6 @@ def renderOutlierExplanation():
             html.Div(id='nowhere', hidden = True),
             data.plotoutlierExplanationPieChartsGraph(),
             data.plotOutlierDistributionGraph(),
+            html.Div(data.contrastiveExplainOutlierBlock(blockIndex=1), id = 'contrastive-explain'),
             data.matrixProfileGraph('outliersKnown')
         ]

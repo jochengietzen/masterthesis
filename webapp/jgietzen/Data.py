@@ -362,6 +362,18 @@ class Data(Cachable):
             a += self.outlierExplanations[oe].explainAll(index)
         return a
 
+    def contrastiveExplainOutlierBlock(self, blockIndex = 0):
+        a = []
+        self.fitSurrogates()
+        self.fitExplainers()
+        for oekey in self.outlierExplanations:
+            oe = self.outlierExplanations[oekey]
+            blocks = oe.outlierBlocks
+            bl, bchar = blocks[blockIndex % len(blocks)]
+            exp = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2), domain = True)
+            exp2 = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2))
+            a += [exp, exp2]
+        return '<br />'.join([str(aa) for aa in a])
 
 
 
