@@ -703,22 +703,13 @@ class Data(Cachable):
         return [shape(**x) for x in xs]
 
 
-    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = False):
+    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = False, traces_over_all = False):
         oe = self.outlierExplanations[outcol]
         l = len(oe.outlierBlocks)
-        linesPerPlot = 4
         rows, cols = 2 + l, topmotifs + 1
-        # rows, cols = l * linesPerPlot, (topmotifs + 1) * 2
         specs = [[None] * cols for row in range(rows)]
-        # specs[0][0] = dict(rowspan=1, colspan = cols)
         for row in range(rows):
             specs[row][0] = dict(rowspan = 1, colspan = cols)
-            # if row % linesPerPlot in [0, 1]:
-            #     specs[row][0] = dict(rowspan = 1, colspan = cols)
-            # else:
-            #     for c in range(0, cols, 2):
-            #         specs[row][c] = dict(colspan = min(cols, 2), rowspan = 1)
-        # log(specs)
         fig = make_subplots(rows, cols,
             specs = specs,
             print_grid=True,
@@ -771,5 +762,6 @@ class Data(Cachable):
             row = 1 + rrow
             fig.update_xaxes(dict(matches='x{}'.format(row)), row=1, col=1)
             fig.update_xaxes(dict(matches='x'), row=row, col=1)
-
+        if traces_over_all:
+            fig.update_traces(xaxis="x{}".format(rows))
         return fig
