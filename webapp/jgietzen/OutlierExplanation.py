@@ -146,7 +146,7 @@ class OutlierExplanation(Hashable):
         if len(self.lime) == 0:
             self.fitLime()
         _, bchar, instance = self.getOutlierBlockLengthOfInstance(instanceIndex)
-        explanation = self.lime[bchar[1]].explain_instance(instance.values, self.surrogates[bchar[1]].predict_proba, **specificKwargs(kwargs, {'num_features': 5, 'top_labels': 1}))
+        explanation = self.lime[bchar[1]].explain_instance(instance.values, self.surrogates[bchar[1]].predict_proba, **specificKwargs(kwargs, {'num_features': 5}))
         if mapExplain:
             feat_cols = self.getDataframe(bchar[1]).columns.tolist()
             explanation = explanation.as_map()

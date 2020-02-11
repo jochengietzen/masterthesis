@@ -766,4 +766,9 @@ class Data(Hashable):
                     scat.visible = 'legendonly'
                 fig.add_trace(scat, row = 3 + currentBlockIndex, col = 1)
             print(explainedFeatures)
+        for rrow in range(1, rows):
+            row = 1 + rrow
+            fig.update_xaxes(dict(matches='x{}'.format(row)), row=1, col=1)
+            fig.update_xaxes(dict(matches='x'), row=row, col=1)
+            
         return fig
