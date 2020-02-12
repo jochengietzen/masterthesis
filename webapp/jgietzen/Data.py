@@ -715,10 +715,9 @@ class Data(Cachable):
         return [shape(**x) for x in xs]
 
 
-    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = False, traces_over_all = False):
+    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = True, traces_over_all = False):
         oe = self.outlierExplanations[outcol]
-        l = len(oe.outlierBlocks)
-        rows, cols = 2 + l, topmotifs + 1
+        rows, cols = 3, 1
         specs = [[None] * cols for row in range(rows)]
         for row in range(rows):
             specs[row][0] = dict(rowspan = 1, colspan = cols)
@@ -729,7 +728,7 @@ class Data(Cachable):
             shared_yaxes=True
         )
         relcol = self.relevant_columns[0]
-        fig.add_trace(self.scatter(relcol, name='Timeseries'), row = 1, col= 1)
+        fig.add_trace(self.scatter(relcol, name=relcol), row = 1, col= 1)
         motiflens = np.sort(np.unique(oe.outlierBlocksLengths))
         lins = np.linspace(150, 255, len(motiflens))
         reds = {l: (lambda lin: lambda alpha: 'rgba({}, 0, 0, {})'.format(lin, alpha))(int(lins[li])) for li, l in enumerate(motiflens)}
@@ -739,18 +738,16 @@ class Data(Cachable):
             currentBlockLength = bChar[1]
             red = reds[currentBlockLength]
             outlierShape.line.color = red(.3)
-            outlierShape.name = 'outlier block'
+            outlierShape.name = 'outlier {}'.format(currentBlockIndex)
             if onlyFirstActiveByDefault:
                 outlierShape.visible = 'legendonly' if currentBlockIndex > 0 else True
-            outlierShape.legendgroup = 'len {}'.format(currentBlockLength)
+            outlierShape.legendgroup = 'outlier {}'.format(currentBlockIndex)
             fig.add_trace(outlierShape, row = 1, col = 1)
-        for ind, motiflen in enumerate(motiflens):
-            mp = self.matrixprofile(col = relcol, motiflen = motiflen)
-            mp.legendgroup = 'len {}'.format(motiflen)
-            # mp.name = 'matrixplot'
-            mp.marker.color = reds[motiflen](1)
+            mp = self.matrixprofile(col = relcol, motiflen = currentBlockLength)
+            mp.legendgroup = 'outlier {}'.format(currentBlockIndex)
+            mp.marker.color = reds[currentBlockLength](1)
             if onlyFirstActiveByDefault:
-                mp.visible = 'legendonly' if ind > 0 else True
+                mp.visible = 'legendonly' if currentBlockIndex > 0 else True
             fig.add_trace(mp, row = 2, col = 1)
 
         for currentBlockIndex, (bl, bChar) in enumerate(oe.outlierBlocks):
@@ -764,11 +761,12 @@ class Data(Cachable):
                 y = df[ef[0]]
                 scat = self.scatter(y=y)
                 scat.name = '{} ({:.3f})'.format(*ef)
+                scat.legendgroup = 'outlier {}'.format(currentBlockIndex)
                 if onlyFirstActiveByDefault:
                     scat.visible = 'legendonly' if currentBlockIndex > 0 else True
                 elif ef[1] <= thresholdLime:
                     scat.visible = 'legendonly'
-                fig.add_trace(scat, row = 3 + currentBlockIndex, col = 1)
+                fig.add_trace(scat, row = 3, col = 1)
             print(explainedFeatures)
         for rrow in range(1, rows):
             row = 1 + rrow
