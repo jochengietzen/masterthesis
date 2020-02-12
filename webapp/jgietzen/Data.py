@@ -46,7 +46,7 @@ class Data(Cachable):
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
-        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'column_outlier'], verbose=True)
+        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
         self._frequency = valueOrAlternative(kwargs, 'frequency')
@@ -223,7 +223,7 @@ class Data(Cachable):
         dic = dict()
         for col in self.column_outlier:
             if col in self.raw_columns:
-                dic[col] = self.raw_df[col].values.flatten()
+                dic[col] = self.raw_df[col].values.flatten().astype(float).astype(int)
         return dic
     
     @property
@@ -709,7 +709,7 @@ class Data(Cachable):
             dict(
                 x0=tstmps[bl[0]],
                 y0=np.min(relData[slice(*bl)]),
-                x1=tstmps[bl[1]],
+                x1=tstmps[bl[1]-1],
                 y1=np.max(relData[slice(*bl)])
             ) for bl, bChar in blocks]
         return [shape(**x) for x in xs]

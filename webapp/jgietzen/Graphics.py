@@ -98,5 +98,5 @@ def renderOutlierExplanation():
             data.plotoutlierExplanationPieChartsGraph(),
             data.plotOutlierDistributionGraph(),
             html.Div(data.contrastiveExplainOutlierBlock(blockIndex=1), id = 'contrastive-explain'),
-            data.matrixProfileGraph('outliersKnown')
+            data.matrixProfileGraph('isof')
         ]
