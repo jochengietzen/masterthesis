@@ -268,6 +268,13 @@ class Data(Cachable):
                 }
         )
 
+    @property
+    def xAxisTitle(self):
+        title = self.column_sort if self._column_sort != None else 'index'
+        if self._has_timestamp:
+            title += ' [sec]'
+        return title
+
     def getRolledTimestamps(self, windowsize):
         return self.timestamps[windowsize // 2::windowsize]
 
@@ -476,7 +483,7 @@ class Data(Cachable):
     def plotdataOutlierBarsAsFigure(self, minValue = -1, maxValue = -1):
         data = self.dataWithOutlier
         layout = dict(
-            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            xaxis = dict(title = self.xAxisTitle),
             hovermode = 'x'
         )
         layout = dict(
@@ -545,7 +552,7 @@ class Data(Cachable):
     def plotdataTimeseriesFigure(self):
         data = self.data
         layout = dict(
-            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            xaxis = dict(title = self.xAxisTitle),
             hovermode = 'x'
         )
         fig = go.Figure(**{'layout': dict(
@@ -667,14 +674,14 @@ class Data(Cachable):
             getattr(fig.layout, yaxis).showticklabels = True
         return fig
 
-    def matrixProfileGraph(self, outcol, topmotifs = 3):
-        self.recalculateOutlierExplanations()
-        # l = len(self.outlierExplanations[outcol].outlierBlocks)
-        return dcc.Graph(id='matrixprofile-timeseries-graph',
-                config = plotlyConf['config'],
-                style= plotlyConf['lambdastyles']['fullsize'](4, 200),
-                figure = self.matrixProfileFigure(outcol, topmotifs=topmotifs)
-            )
+    # def matrixProfileGraph(self, outcol, topmotifs = 3):
+    #     self.recalculateOutlierExplanations()
+    #     # l = len(self.outlierExplanations[outcol].outlierBlocks)
+    #     return dcc.Graph(id='matrixprofile-timeseries-graph',
+    #             config = plotlyConf['config'],
+    #             style= plotlyConf['lambdastyles']['fullsize'](4, 200),
+    #             figure = self.matrixProfileFigure(outcol, topmotifs=topmotifs)
+    #         )
 
     def scatter(self, col=None, x = None, y = None, name = None):
         assert type(col) != type(None) or type(y) != type(None)
@@ -704,7 +711,7 @@ class Data(Cachable):
                 line = dict(color = 'rgb(255,0,0)')
             )
         tstmps = self.timestamps
-        relData = self.data[castlist(relCol)].values.flatten()
+        relData = self.data[castlist(relCol)].values
         xs = [
             dict(
                 x0=tstmps[bl[0]],
@@ -714,64 +721,77 @@ class Data(Cachable):
             ) for bl, bChar in blocks]
         return [shape(**x) for x in xs]
 
+    # # @cache(payAttentionTo=['relevant_columns', 'column_outlier'])
+    # def matrixProfileData(self, topExplanations = 3, thresholdLime = .05, topmotifs = 3):
+    #     ret = dict()
+    #     for outcol in self.column_outlier:
+    #         curret = dict()
+    #         oe = self.outlierExplanations[outcol]
+    #         curret['outlierShapes'] = {rel: self.outlierShapes(rel, outcol) for rel in self.relevant_columns}
 
-    def matrixProfileFigure(self, outcol, topExplanations = 3, thresholdLime = .05, topmotifs = 3, onlyFirstActiveByDefault = True, traces_over_all = False):
+    #         ret[outcol] = curret   
+
+    def getOutlierBlockLengths(self, outcolumn = None):
+        self.recalculateOutlierExplanations()
+        if outcolumn in [None, 'None']:
+            return 0
+        else:
+            return len(self.outlierExplanations[outcolumn].outlierBlocks) - 1
+
+    def matrixProfileGraph(self):
+        self.recalculateOutlierExplanations()
+        # l = len(self.outlierExplanations[outcol].outlierBlocks)
+        return dcc.Graph(id='matrixprofile-timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['lambdastyles']['fullsize'](3, 200),
+            )
+
+    @cache()
+    def matrixProfileFigure(self, outcol = None, blockindex = 0, topExplanations = 3, thresholdLime = .05, topmotifs = 3, traces_over_all = False):
+        self.recalculateOutlierExplanations()
+        outcol = outcol if outcol not in [None, 'None'] else self.column_outlier[0]
         oe = self.outlierExplanations[outcol]
         rows, cols = 3, 1
-        specs = [[None] * cols for row in range(rows)]
-        for row in range(rows):
-            specs[row][0] = dict(rowspan = 1, colspan = cols)
+        specs = [[dict(rowspan = 1, colspan = cols)] for row in range(rows)]
         fig = make_subplots(rows, cols,
             specs = specs,
             print_grid=True,
             shared_xaxes=True,
-            shared_yaxes=True
+            shared_yaxes=True,
+            
         )
-        relcol = self.relevant_columns[0]
-        fig.add_trace(self.scatter(relcol, name=relcol), row = 1, col= 1)
-        motiflens = np.sort(np.unique(oe.outlierBlocksLengths))
-        lins = np.linspace(150, 255, len(motiflens))
-        reds = {l: (lambda lin: lambda alpha: 'rgba({}, 0, 0, {})'.format(lin, alpha))(int(lins[li])) for li, l in enumerate(motiflens)}
-        outlierShapes = self.outlierShapes(relcol, outcol)
-        for currentBlockIndex, (bl, bChar) in enumerate(oe.outlierBlocks):
-            outlierShape = outlierShapes[currentBlockIndex]
-            currentBlockLength = bChar[1]
-            red = reds[currentBlockLength]
-            outlierShape.line.color = red(.3)
-            outlierShape.name = 'outlier {}'.format(currentBlockIndex)
-            if onlyFirstActiveByDefault:
-                outlierShape.visible = 'legendonly' if currentBlockIndex > 0 else True
-            outlierShape.legendgroup = 'outlier {}'.format(currentBlockIndex)
-            fig.add_trace(outlierShape, row = 1, col = 1)
+        outlierShapes = self.outlierShapes(self.relevant_columns, outcol)
+        bl, bChar = oe.outlierBlocks[blockindex]
+        outlierShape = outlierShapes[blockindex]
+        currentBlockLength = bChar[1]
+        outlierShape.line.color = 'rgba(255, 0, 0, .3)'
+        outlierShape.name = 'outlier {}'.format(blockindex)
+        # outlierShape.legendgroup = 'outlier {}'.format(blockindex)
+        for relcol in self.relevant_columns:
+            scat = self.scatter(relcol, name=relcol)
             mp = self.matrixprofile(col = relcol, motiflen = currentBlockLength)
-            mp.legendgroup = 'outlier {}'.format(currentBlockIndex)
-            mp.marker.color = reds[currentBlockLength](1)
-            if onlyFirstActiveByDefault:
-                mp.visible = 'legendonly' if currentBlockIndex > 0 else True
+            scat.legendgroup = '{}'.format(relcol)
+            mp.legendgroup = '{}'.format(relcol)
+            mp.marker.color = scat.marker.color
+            fig.add_trace(scat, row = 1, col= 1)
             fig.add_trace(mp, row = 2, col = 1)
-
-        for currentBlockIndex, (bl, bChar) in enumerate(oe.outlierBlocks):
-            explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
-            if 1 not in explainedFeatures:
-                continue
-            explainedFeatures = explainedFeatures[1]
-            explainedFeatures = explainedFeatures[:min(len(explainedFeatures),topExplanations)]
-            df = oe.getDataframe(bChar[1])
-            for ef in explainedFeatures:
-                y = df[ef[0]]
-                scat = self.scatter(y=y)
-                scat.name = '{} ({:.3f})'.format(*ef)
-                scat.legendgroup = 'outlier {}'.format(currentBlockIndex)
-                if onlyFirstActiveByDefault:
-                    scat.visible = 'legendonly' if currentBlockIndex > 0 else True
-                elif ef[1] <= thresholdLime:
-                    scat.visible = 'legendonly'
-                fig.add_trace(scat, row = 3, col = 1)
-            print(explainedFeatures)
+        fig.add_trace(outlierShape, row = 1, col = 1)
+        explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
+        explainedFeatures = explainedFeatures[1]
+        explainedFeatures = explainedFeatures[:min(len(explainedFeatures),topExplanations)]
+        df = oe.getDataframe(bChar[1])
+        for ef in explainedFeatures:
+            y = df[ef[0]]
+            scat = self.scatter(y=y)
+            scat.name = '{} ({:.3f})'.format(*ef)
+            scat.legendgroup = 'outlier {}'.format(blockindex)
+            if ef[1] <= thresholdLime:
+                scat.visible = 'legendonly'
+            fig.add_trace(scat, row = 3, col = 1)
         for rrow in range(1, rows):
             row = 1 + rrow
-            fig.update_xaxes(dict(matches='x{}'.format(row)), row=1, col=1)
-            fig.update_xaxes(dict(matches='x'), row=row, col=1)
-        if traces_over_all:
-            fig.update_traces(xaxis="x{}".format(rows))
+            fig.update_xaxes(dict(title = self.xAxisTitle, matches='x{}'.format(row)), row=1, col=1)
+            fig.update_xaxes(dict(title = self.xAxisTitle, matches='x'), row=row, col=1)
+        # if traces_over_all:
+        #     fig.update_traces(xaxis="x{}".format(rows))
         return fig

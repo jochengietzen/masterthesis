@@ -9,32 +9,6 @@ from webapp.helper import log
 
 from webapp.config import percistency, plotlyConf,  colormap
 
-# def renderTimeseries2():
-#     exists, data = Data.existsData()
-#     if not exists:
-#         return []
-#     else:
-#         dat, layout = data.plotdataTimeseries()
-#         return [
-#             # html.H1('Timeseries'),
-#             dcc.Graph(
-#                 figure = {**{'data': dat},
-#                 **{'layout': dict(
-#                     title='Timeseries',
-#                     showlegend=True,
-#                     legend=dict(
-#                         x=0,
-#                         y=1.2
-#                     ),
-#                     **plotlyConf['layout'],
-#                     **layout,
-#                     margin=dict(l=40, r=0, t=40, b=30)
-#                 )}},
-#                 id = 'timeseries-graph',
-#                 config = plotlyConf['config'],
-#                 style= plotlyConf['styles']['fullsize'],
-#             )
-#             ]
 
 
 def renderTest():
@@ -58,24 +32,6 @@ def renderTest():
             ])
         ]
 
-# def renderTest():
-#     import dash_table
-#     exists, data = Data.existsData()
-#     if not exists:
-#         return []
-#     else:
-#         slid = data.extract_features(windowsize=5, roll=True)
-#         # slid = data.slide(windowsize=5)
-#         return [
-#             html.Div([
-#             html.H5(data.originalfilename),
-#             dash_table.DataTable(
-#                 data=slid.head(20).to_dict('records'),
-#                 columns=[{'name': i, 'id': i} for i in slid.columns]
-#             ),
-#             html.Hr(),  # horizontal line
-#             ])
-#         ]
 
 def renderTimeseries():
     exists, data = Data.existsData()
@@ -98,5 +54,32 @@ def renderOutlierExplanation():
             data.plotoutlierExplanationPieChartsGraph(),
             data.plotOutlierDistributionGraph(),
             html.Div(data.contrastiveExplainOutlierBlock(blockIndex=1), id = 'contrastive-explain'),
-            data.matrixProfileGraph('isof')
+            # data.matrixProfileGraph('isof')
+        ]
+
+def maxValueMPSlider(outcolumn = 'None'):
+    exists, data = Data.existsData()
+    return data.getOutlierBlockLengths(outcolumn) if exists else 0
+
+def renderSettingsButtons(outcolumn = 'None', block = 0):
+    exists, data = Data.existsData()
+    colOutlier = dcc.Dropdown(id='mp-column-outlier', value=outcolumn, style = {'minWidth': '100px'}, persistence = True)
+    colOutlier.options=[{'label': 'None', 'value': 'None'}] + [
+        {'label': col, 'value': col} for col in data.column_outlier
+    ] if exists else []
+    obl = maxValueMPSlider(outcolumn)
+    sliderOutlierblock = dcc.Slider(id='mp-slider-outlierblock', value=block, min=0, max = obl if exists else 0, persistence = True)
+    return [
+        colOutlier,
+        html.Div([html.Label('Outlier Nr.'),sliderOutlierblock])
+    ]
+
+def renderMatrixPlot():
+    exists, data = Data.existsData()
+    if not exists:
+        return []
+    else:
+        return [
+            html.Div(renderSettingsButtons(),id='mp-settings'),
+            data.matrixProfileGraph()
         ]

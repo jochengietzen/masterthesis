@@ -112,8 +112,8 @@ class OutlierExplanation(Cachable):
                                                                  class_names=self.surrogates[bchar[1]].classes_)
 
     def checkFitSurrogate(self):
-        if len(self.surrogates) == 0:
-            self.fitSurrogate()
+        # if len(self.surrogates) == 0:
+        self.fitSurrogate()
 
     def fitShap(self, adjustedToOutlierBlock = False, **kwargs):
         self.checkFitSurrogate()
