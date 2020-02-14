@@ -81,5 +81,10 @@ def renderMatrixPlot():
     else:
         return [
             html.Div(renderSettingsButtons(),id='mp-settings'),
-            data.matrixProfileGraph()
+            data.matrixProfileGraph(),
+            html.Div(
+                html.Div(id='mp-contrastive-explanation-text'),
+                id='mp-contrastive-explanation-div',
+                style=dict(width='100%', backgroundColor='lightgrey')
+            )
         ]

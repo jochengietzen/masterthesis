@@ -19,6 +19,8 @@ from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Cachable import Cachable, cache
 from webapp.jgietzen.Threading import threaded
 from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
+from .HumanReadable import Explanation
+
 
 class Data(Cachable):
     __tsID = 'tsid'
@@ -369,18 +371,16 @@ class Data(Cachable):
             a += self.outlierExplanations[oe].explainAll(index)
         return a
 
-    def contrastiveExplainOutlierBlock(self, blockIndex = 0):
-        a = []
+    def contrastiveExplainOutlierBlock(self, outcol = None, blockindex = 0):
         self.fitSurrogates()
         self.fitExplainers()
-        for oekey in self.outlierExplanations:
-            oe = self.outlierExplanations[oekey]
-            blocks = oe.outlierBlocks
-            bl, bchar = blocks[blockIndex % len(blocks)]
-            exp = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2), domain = True)
-            exp2 = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2))
-            a += [exp, exp2]
-        return '<br />'.join([str(aa) for aa in a])
+        outcol = outcol if outcol != None else self.column_outlier[0]
+        oe = self.outlierExplanations[outcol]
+        blocks = oe.outlierBlocks
+        bl, bchar = blocks[blockindex]
+        exp = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2))
+        humanreadable = Explanation.fromContrastiveResult(exp, oe.getDataframe(bchar[1]).columns.tolist(), oe.surrogates[bchar[1]].classes_)
+        return humanreadable.explain()
 
 
 

@@ -74,6 +74,25 @@ def renderMPGraph(outcol, block):
         return data.matrixProfileFigure(**kwargs)
     return None
 
+@app.callback(
+    Output('mp-contrastive-explanation-text', 'children'),
+    [
+        Input('mp-column-outlier', 'value'),
+        Input('mp-slider-outlierblock', 'value'),
+    ]
+)
+def renderMatrixProfileText(outcol, block):
+    kwargs = {}
+    none = [None, 'None']
+    exists, data = Data.existsData()
+    if outcol not in none:
+        kwargs['outcol'] = outcol
+    if block not in none:
+        kwargs['blockindex'] = block
+    if exists:
+        return data.contrastiveExplainOutlierBlock(**kwargs)
+    return None
+
 # @app.callback(
 #     Output('nowhere', 'children'),
 #     [Input('matrixprofile-timeseries-graph', 'hoverData')])
