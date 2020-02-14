@@ -98,7 +98,7 @@ class OutlierExplanation(Cachable):
                 self.surrogates[bchar[1]] = sklearn.ensemble.RandomForestClassifier(**specificKwargs(kwargs, {'n_estimators': 500}))
                 self.surrogates[bchar[1]].fit(self.getDataframe(bchar[1], adjustedToOutlierBlock = adjustedToOutlierBlock),
                              self.npmap({True: 'outlier', False: 'inlier'})(self.getOutlierAdjusted(adjustedToOutlierBlock=adjustedToOutlierBlock)))
-        log('Surrogates trained')
+                log(f'Surrogates for len {bchar[1]} trained')
     
     def fitLime(self, adjustedToOutlierBlock=False, **kwargs):
         if len(self.surrogates) == 0:
