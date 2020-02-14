@@ -13,13 +13,14 @@ uploadStyle = {
     'margin': '10px 0'
 }
 
-deleteButtonDivStyle = {
+buttonDivStyle = {
     'display': 'flex',
     'justifyContent': 'flex-end'
 }
 
 fullparentwidth = {'width': '100%'}
 displaynone = {'display': 'none'}
+displayinlineblock = {'display': 'inline-block'}
 maxwidth200 =  {'maxWidth': '200px'}
 
 settingsStyle = {'width': '100%', 'display': 'flex', 'justifyContent': 'space-around'}

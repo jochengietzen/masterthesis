@@ -1,6 +1,8 @@
 from webapp.jgietzen.Data import Data
 from .applicationProvider import session
 from webapp.config import dir_datafiles
+from ..helper import log
+import os
 
 def getCurrentFile():
     data = Data.load(session.get('uid'))
@@ -36,3 +38,15 @@ def deleteCurrentFile():
     data = getCurrentFile()
     if type(data) != type(None):
         data.delete()
+
+def getAvailableDataSets():
+    return [fil for fil in os.listdir(dir_datafiles) if fil.startswith('datafile_')]
+
+def saveNewFile(df = None, originalfilename = ''):
+    log('Save the new file')
+    log(df, originalfilename)
+    data = Data(df, column_sort='idx', 
+        filename = originalfilename.strip('.csv'),
+        originalfilename = originalfilename)
+    data.save()
+    pass

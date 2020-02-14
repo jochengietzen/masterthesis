@@ -383,7 +383,7 @@ class Data(Cachable):
 
     def save(self):
         from os.path import join
-        pkl.dump(self, open(join(dir_datafiles, self.filename), 'wb'))
+        pkl.dump(self, open(join(dir_datafiles, f'datafile_{self.filename}'), 'wb'))
     
     def delete(self):
         from os.path import join, exists
