@@ -14,6 +14,7 @@ from dash.dependencies import Input, Output, State
 import pandas as pd
 import pickle
 from webapp.flaskFiles.applicationProvider import app, session
+from ..DataHandler import *
 
 from webapp.jgietzen.Data import Data
 
@@ -54,7 +55,7 @@ def parse_contents(contents, filename, date):
         return html.Div([
             'There was an error processing this file.'
         ])
-    Data.saveCurrentFile(df, originalfilename=filename)
+    saveCurrentFile(df, originalfilename=filename)
     return renderData()
 
 def renderSettings(data = None):
@@ -96,7 +97,7 @@ def renderSettings(data = None):
         ],style = settingsStyle)
 
 def renderData():
-    exists, data = Data.existsData()
+    exists, data = existsData()
     settings = renderSettings(data)
     if not exists:
         return [[],[]]
@@ -128,7 +129,7 @@ def renderData():
     State('upload-data', 'last_modified')])
 def update_output(list_of_contents, n, list_of_names, list_of_dates):
     if n != None:
-        Data.deleteCurrentFile()
+        deleteCurrentFile()
         return renderData()
     if list_of_contents is not None:
         children = parse_contents(list_of_contents, list_of_names, list_of_dates)
@@ -143,7 +144,7 @@ def update_output(list_of_contents, n, list_of_names, list_of_dates):
     ],
     [Input('output-data-upload', 'children')])
 def renderDeleteButton(children):
-    exists, _ = Data.existsData()
+    exists, _ = existsData()
     deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(not exists)]
     return [not exists, [deleteButton], exists]
 
@@ -153,7 +154,7 @@ def renderDeleteButton(children):
     Input('clear-frequency', 'n_clicks'),
 ])
 def clearFrequency(clear):
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if exists:
         if clear != None and clear != 'None':
             data.set_frequency(None)
@@ -173,9 +174,7 @@ def clearFrequency(clear):
     Input('input-frequency', 'value'),
 ])
 def updateData(sort, idd, outlier, relevant_columns, isTimestamp, frequency):
-    ##log('Update data with')
-    ##log(sort, idd, outlier)
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if not exists:
         return [[], True]
     if sort != None and sort != 'None':
