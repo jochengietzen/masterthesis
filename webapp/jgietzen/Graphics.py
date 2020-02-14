@@ -5,34 +5,11 @@ import plotly_express as px
 import plotly.graph_objects as go
 
 
-from webapp.helper import percistency, plotlyConf, log, colormap
+from webapp.helper import log
 
-# def renderTimeseries2():
-#     exists, data = Data.existsData()
-#     if not exists:
-#         return []
-#     else:
-#         dat, layout = data.plotdataTimeseries()
-#         return [
-#             # html.H1('Timeseries'),
-#             dcc.Graph(
-#                 figure = {**{'data': dat},
-#                 **{'layout': dict(
-#                     title='Timeseries',
-#                     showlegend=True,
-#                     legend=dict(
-#                         x=0,
-#                         y=1.2
-#                     ),
-#                     **plotlyConf['layout'],
-#                     **layout,
-#                     margin=dict(l=40, r=0, t=40, b=30)
-#                 )}},
-#                 id = 'timeseries-graph',
-#                 config = plotlyConf['config'],
-#                 style= plotlyConf['style'],
-#             )
-#             ]
+from webapp.config import percistency, plotlyConf,  colormap
+
+
 
 def renderTest():
     import dash_table
@@ -40,8 +17,10 @@ def renderTest():
     if not exists:
         return []
     else:
-        slid = data.extract_features(windowsize=5, roll=True)
-        # slid = data.slide(windowsize=5)
+        data.fitSurrogates()
+        data.fitExplainers()
+        _ = data.explainAll(0)
+        slid = data.extract_features(windowsize=7, roll=False)
         return [
             html.Div([
             html.H5(data.originalfilename),
@@ -53,6 +32,7 @@ def renderTest():
             ])
         ]
 
+
 def renderTimeseries():
     exists, data = Data.existsData()
     if not exists:
@@ -61,4 +41,50 @@ def renderTimeseries():
         # dat, layout = data.plotdataTimeseries()
         return [
             data.plotdataTimeseriesGraph()
+        ]
+
+def renderOutlierExplanation():
+    exists, data = Data.existsData()
+    if not exists:
+        return []
+    else:
+        # dat, layout = data.plotdataTimeseries()
+        return [
+            html.Div(id='nowhere', hidden = True),
+            data.plotoutlierExplanationPieChartsGraph(),
+            data.plotOutlierDistributionGraph(),
+            html.Div(data.contrastiveExplainOutlierBlock(blockIndex=1), id = 'contrastive-explain'),
+            # data.matrixProfileGraph('isof')
+        ]
+
+def maxValueMPSlider(outcolumn = 'None'):
+    exists, data = Data.existsData()
+    return data.getOutlierBlockLengths(outcolumn) if exists else 0
+
+def renderSettingsButtons(outcolumn = 'None', block = 0):
+    exists, data = Data.existsData()
+    colOutlier = dcc.Dropdown(id='mp-column-outlier', value=outcolumn, style = {'minWidth': '100px'}, persistence = True)
+    colOutlier.options=[{'label': 'None', 'value': 'None'}] + [
+        {'label': col, 'value': col} for col in data.column_outlier
+    ] if exists else []
+    obl = maxValueMPSlider(outcolumn)
+    sliderOutlierblock = dcc.Slider(id='mp-slider-outlierblock', value=block, min=0, max = obl if exists else 0, persistence = True)
+    return [
+        colOutlier,
+        html.Div([html.Label('Outlier Nr.'),sliderOutlierblock])
+    ]
+
+def renderMatrixPlot():
+    exists, data = Data.existsData()
+    if not exists:
+        return []
+    else:
+        return [
+            html.Div(renderSettingsButtons(),id='mp-settings'),
+            data.matrixProfileGraph(),
+            html.Div(
+                html.Div(id='mp-contrastive-explanation-text'),
+                id='mp-contrastive-explanation-div',
+                style=dict(width='100%', backgroundColor='lightgrey')
+            )
         ]

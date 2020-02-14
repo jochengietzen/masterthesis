@@ -1,20 +1,28 @@
+import math
 import pandas as pd
 import numpy as np
 import pickle as pkl
 import tsfresh
-from webapp.config import dir_datafiles
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 import colorlover as cl
+import matrixprofile
+from matrixprofile import matrixProfile
 
-from webapp.helper import valueOrAlternative, log, colormap, plotlyConf, consecutiveDiff, slide_time_series
+from webapp.config import dir_datafiles
+from webapp.config import colormap, plotlyConf
 from webapp.flaskFiles.applicationProvider import session
+from webapp.jgietzen.OutlierExplanation import OutlierExplanation
+from webapp.jgietzen.Cachable import Cachable, cache
+from webapp.jgietzen.Threading import threaded
+from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
+from .HumanReadable import Explanation
 
-class Data:
+
+class Data(Cachable):
     __tsID = 'tsid'
     __tsTstmp = 'tststmp'
     __colOut = 'outlierColumns'
@@ -22,7 +30,9 @@ class Data:
     __idIndex = None
     __kind = 'tskind'
     __sortCache = None
-    internalStore = {}
+    _frequency = None
+    featureFrames = {}
+    outlierExplanations = {}
     slidedData = {}
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
@@ -38,21 +48,49 @@ class Data:
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
+        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
-        self.frequency = valueOrAlternative(kwargs, 'frequency')
+        self._frequency = valueOrAlternative(kwargs, 'frequency')
         self.short_desc = valueOrAlternative(kwargs, 'short_desc')
         self._column_id = valueOrAlternative(kwargs, 'column_id')
         assert has_timestamp != None and type(has_timestamp) == bool, 'Has Timestamp is required and needs to be of type boolean'
-        self.has_timestamp = has_timestamp
-        assert column_sort != None or self.frequency != None, 'Column sort is required and cannot be None if no frequency is available'
+        self._has_timestamp = has_timestamp
+        assert column_sort != None or self._frequency != None, 'Column sort is required and cannot be None if no frequency is available'
         self._column_sort = column_sort
         self.__kwargs = kwargs
         self.filename = valueOrAlternative(kwargs, 'filename', 'random')
         self.originalfilename = valueOrAlternative(kwargs, 'originalfilename')
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
-        self.internalStore = {}
+        self.initOutlierExplanations()
+        '''
+        Possible Idea:
+            - One could include the values available in outlier columns as dropdown to mark what is an outlier.
+            For now we just assume that an outlier is marked with a 1
+        '''
+
+    def initOutlierExplanations(self):
+        if len(self.column_outlier) > 0:
+            for col in self.column_outlier:
+                self.initOutlierExplanation(col)
+    
+    # @threaded
+    def initOutlierExplanation(self, col):
+        dat = self.dataWithOutlier
+        assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
+        outs = dat[[col]].values.flatten()
+        outs = alternativeMap(outs, {1: True}, False)
+        self.outlierExplanations[col] = OutlierExplanation(outs, self)
+    
+    def recalculateOutlierExplanations(self):
+        calculated = list(self.outlierExplanations.keys())
+        outcols = self.column_outlier
+        for toDelete in [col for col in calculated if col not in outcols]:
+            del self.outlierExplanations[toDelete]
+        calculated = list(self.outlierExplanations.keys())
+        for toCalculate in [col for col in outcols if col not in calculated]:
+            self.initOutlierExplanation(toCalculate)
 
     def set_column_sort(self, column_sort):
         if self._column_sort == column_sort:
@@ -68,18 +106,43 @@ class Data:
         if self._column_outlier == column_outlier:
             return
         self._column_outlier = column_outlier
+        self.recalculateOutlierExplanations()
 
     def set_relevant_columns(self, relevant_columns):
         if self._relevantColumns == relevant_columns:
             return
         self._relevantColumns = relevant_columns
     
+    def set_frequency(self, frequency):
+        if self._frequency == frequency:
+            return
+        self._frequency = frequency
+
+    def set_has_timestamp_value(self, has_timestamp):
+        if type(has_timestamp) == str:
+            has_timestamp = has_timestamp == 'True'
+        if self._has_timestamp == has_timestamp:
+            return
+        if has_timestamp:
+            self.set_frequency(None)
+        self._has_timestamp = has_timestamp
+
+    @property
+    def has_timestamp_value(self):
+        return self._has_timestamp
+
+    @property
+    def has_timestamp(self):
+        return self._has_timestamp and self.column_sort in self.raw_df.columns
+
     @property
     def tsTstmp(self):
         return self.__tsTstmp
     
     @property
     def timestamps(self):
+        if self.has_timestamp:
+            return self.raw_df[[self.column_sort]].values.flatten()
         return self.data[[self.column_sort]].values.flatten()
 
     @property
@@ -108,8 +171,25 @@ class Data:
         return [col for col in self.raw_columns if col not in specialCols]
 
     @property
+    def has_frequency(self):
+        return self.frequency != None
+
+    @property
+    def frequency(self):
+        if self._frequency != None:
+            return self._frequency
+        if self.has_timestamp:
+            tmp = np.mean(np.ediff1d(self.timestamps))
+            return 1/tmp if tmp != 0 else None
+        return None
+
+    @property
+    def frequency_value(self):
+        return self._frequency
+
+    @property
     def sort_is_timestamp(self):
-        return self.has_timestamp or self._column_sort == None and self.frequency != None
+        return self.has_timestamp or self._column_sort == None and self._frequency != None
     
     @property
     def column_sort(self):
@@ -145,7 +225,7 @@ class Data:
         dic = dict()
         for col in self.column_outlier:
             if col in self.raw_columns:
-                dic[col] = self.raw_df[col].values.flatten()
+                dic[col] = self.raw_df[col].values.flatten().astype(float).astype(int)
         return dic
     
     @property
@@ -181,8 +261,21 @@ class Data:
         return dict(
             column_id=self.column_id, column_sort=self.column_sort,
             # column_kind=self.column_id,
-            default_fc_parameters={'maximum':None, 'minimum':None}
+            default_fc_parameters={
+                'maximum':None,
+                'minimum':None,
+                'median': None,
+                'mean': None,
+                'length': None,
+                }
         )
+
+    @property
+    def xAxisTitle(self):
+        title = self.column_sort if self._column_sort != None else 'index'
+        if self._has_timestamp:
+            title += ' [sec]'
+        return title
 
     def getRolledTimestamps(self, windowsize):
         return self.timestamps[windowsize // 2::windowsize]
@@ -228,6 +321,7 @@ class Data:
         #slid[self.__kind] = np.repeat(np.arange(0,slid.shape[0]/windowsize, 1, int), windowsize)
         return slid
 
+    @cache()
     def extract_features(self, windowsize, roll = False, removeNa=True):
         assert len(np.unique(self.ids)) <= 1, 'Multiple Timelines Not yet supported'
         slid = self.slide(windowsize)
@@ -245,6 +339,48 @@ class Data:
         return extracted
 
 
+    '''
+    Functions for Outlier explanations
+    '''
+    def calc_feature_frame(self, l):
+        log('Feature frame calculation length', l)
+        if l not in self.featureFrames:
+            ret = self.extract_features(windowsize=l, roll = False, removeNa = True)
+            # TODO: Investigate again, why you need the decrementation of -1
+            self.featureFrames[l] = ret
+
+    @cache(payAttentionTo=['relevant_columns'])
+    def get_feature_frame(self, windowsize, adjustedToOutlierBlock = False):
+        if adjustedToOutlierBlock == True:
+            # TODO
+            raise NotImplementedError
+        self.calc_feature_frame(windowsize)
+        return self.featureFrames[windowsize]
+
+    def fitSurrogates(self, adjustedToOutlierBlock = False):
+        for oe in self.outlierExplanations:
+            self.outlierExplanations[oe].fitSurrogate(seed = 1, adjustedToOutlierBlock = adjustedToOutlierBlock)
+
+    def fitExplainers(self, adjustedToOutlierBlock = False):
+        for oe in self.outlierExplanations:
+            self.outlierExplanations[oe].fitExplainers(adjustedToOutlierBlock = adjustedToOutlierBlock)
+
+    def explainAll(self, index = 0):
+        a = []
+        for oe in self.outlierExplanations:
+            a += self.outlierExplanations[oe].explainAll(index)
+        return a
+
+    def contrastiveExplainOutlierBlock(self, outcol = None, blockindex = 0):
+        self.fitSurrogates()
+        self.fitExplainers()
+        outcol = outcol if outcol != None else self.column_outlier[0]
+        oe = self.outlierExplanations[outcol]
+        blocks = oe.outlierBlocks
+        bl, bchar = blocks[blockindex]
+        exp = oe.explainContrastiveFoilInstance(instanceIndex = bl[0] + (bchar[1] // 2))
+        humanreadable = Explanation.fromContrastiveResult(exp, oe.getDataframe(bchar[1]).columns.tolist(), oe.surrogates[bchar[1]].classes_)
+        return humanreadable.explain()
 
 
 
@@ -313,14 +449,16 @@ class Data:
     '''
     Plotting with plotly functions
     '''
+    @cache()
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
-                style= plotlyConf['style'],
+                style= plotlyConf['styles']['fullsize'],
                 figure = self.plotdataTimeseriesOutlierGraph()
                 # figure = self.plotdataTimeseriesFigure()
             )
     
+    # @cache()
     def plotdataTimeseriesOutlierGraph(self):
         rows, cols = 2, 1
         fig = make_subplots(rows=rows, cols=cols, specs=[[{"secondary_y": True}] for r in range(rows) for col in range(cols)])
@@ -331,7 +469,7 @@ class Data:
         fig.update_layout(ts.layout)
         data = self.data[self.relevant_columns]
         mima = dict(minValue=data.min().min(), maxValue=data.max().max())
-        outlierRectangles = self.plotdataOutlierRectangleFigure(**mima)
+        outlierRectangles = self.plotdataOutlierBarsAsFigure(**mima)
         sums = self.dataWithOutlier[self.column_outlier].sum(axis=1)
         ticks = sums.max() if len(self.column_outlier) > 1 else 0
         ticks = list(range(ticks))
@@ -341,10 +479,11 @@ class Data:
         # fig.update_yaxes(secondary_y=True, row=1, col=1)
         return fig
 
-    def plotdataOutlierRectangleFigure(self, minValue = -1, maxValue = -1):
+    @cache()
+    def plotdataOutlierBarsAsFigure(self, minValue = -1, maxValue = -1):
         data = self.dataWithOutlier
         layout = dict(
-            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            xaxis = dict(title = self.xAxisTitle),
             hovermode = 'x'
         )
         layout = dict(
@@ -409,10 +548,11 @@ class Data:
         fig.update_shapes(dict(xref='x', yref='y'))
         return fig
 
+    @cache(payAttentionTo=['relevant_columns'])
     def plotdataTimeseriesFigure(self):
         data = self.data
         layout = dict(
-            xaxis = dict(title = self.column_sort if self._column_sort != None else 'index'),
+            xaxis = dict(title = self.xAxisTitle),
             hovermode = 'x'
         )
         fig = go.Figure(**{'layout': dict(
@@ -430,4 +570,228 @@ class Data:
                 )})
         for ind, col in enumerate(self.relevant_columns):
             fig.add_trace(go.Scatter(name=col , x=data[[self.column_sort]].values.flatten(), y=data[[col]].values.flatten(), marker= dict(color=colormap(ind))))
+        return fig
+
+    def plotoutlierExplanationPieChartsFigure(self, breakAfterXCharts = 5):
+        self.recalculateOutlierExplanations()
+        l = len(self.column_outlier)
+        fig = None
+        # if l == 1:
+        #     cs = self.outlierExplanations[self.column_outlier[0]].getOutlierPartitions
+        #     fig = go.Figure(go.Pie(labels=cs[2], values=cs[1], marker=dict(colors = cs[4])))
+        # elif l > 1:
+        rows, cols = 1, l
+        l2 = l/2 if l > breakAfterXCharts else l
+        if l > breakAfterXCharts:
+            rows, cols = 2, math.ceil(l2)
+        fig = make_subplots(rows, cols,
+                print_grid=True,
+                specs=[[{"type": 'domain'} for col in range(cols)] for r in range(rows)]
+            )
+        row, column = 1, 0
+        for _, col in enumerate(self.column_outlier):
+            column += 1
+            if column > l2:
+                row +=1
+                column = 1
+            cs = self.outlierExplanations[col].getOutlierPartitions
+            fig.add_trace(go.Pie(
+                title=dict(text=col, position='bottom center'),
+                showlegend=False,
+                values=cs[1],
+                name=col,
+                marker=dict(colors=cs[4]),
+                labels = ['{} {}'.format(col, c) for c in cs[2]],
+            ), row, column)
+        fig.update_layout(
+            margin=go.layout.Margin(
+                l=0,
+                r=0,
+                b=10,
+                t=10,
+                pad=0
+            ))
+        return fig
+        
+    @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
+    def plotoutlierExplanationPieChartsGraph(self):
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['styles']['smallCorner'],
+                figure = self.plotoutlierExplanationPieChartsFigure()
+            )
+    
+    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
+    def plotOutlierDistributionGraph(self, shareX = True):
+        return dcc.Graph(id='timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['styles']['supersize'],
+                figure = self.plotOutlierDistributionFigure()
+            )
+
+    def plotOutlierDistributionFigure(self, shareX = True):
+        self.recalculateOutlierExplanations()
+        rows, cols = len(self.relevant_columns), len(self.column_outlier)
+        fig = make_subplots(
+            rows=rows,
+            cols=cols,
+            print_grid=True,
+            shared_xaxes= shareX,
+            shared_yaxes=True,
+            start_cell='top-left',
+            horizontal_spacing=.05,
+            vertical_spacing = .2,
+            subplot_titles= ['{out} for variable {col}'.format(out=out, col=col) for col in self.relevant_columns for out in self.column_outlier]
+            )
+        fig.update_layout(dict(title=dict(text='Distribution of outliers vs inliers', x = .5), hovermode = 'x'))
+        
+        data = self.data
+        for ind, col in enumerate(self.relevant_columns):
+            y = data[[col]].values.flatten()
+            row = 1 + ind
+            for ind2, out in enumerate(self.column_outlier):
+                groups = {}
+                groupCount = {}
+                currentrow = row
+                for _, (block, bchar, bcolor) in enumerate(self.outlierExplanations[out].consecBlocksForPlotting):
+                    if bchar[0] not in groupCount:
+                        groupCount[bchar[0]] = 0
+                    y0 = y[block[0]:block[1]]
+                    name = '{}-{}-{}'.format(bchar[0], col, groupCount[bchar[0]])
+                    name = '{}-{}'.format(bchar[0], groupCount[bchar[0]]) if shareX else name
+                    fig.add_trace(go.Box(y=y0,
+                        legendgroup = '{}-{}'.format(bchar[0], col),
+                        name = name,
+                        showlegend=False,
+                        marker_color=bcolor,
+                        boxpoints='suspectedoutliers',
+                    ), currentrow, 1 + ind2)
+                    groupCount[bchar[0]] += 1
+                    if bchar[0] not in groups:
+                        groups[bchar[0]] = bcolor
+            [fig.add_trace(go.Box(y = ['null'],legendgroup= '{}-{}'.format(c[0], col),name = '{}-{}'.format(c[0], col), marker_color = c[1]), currentrow, 1) for c in groups.items()]
+        for yaxis in [ya for ya in inspect(fig.layout) if ya.startswith('axis', 1)]:
+            getattr(fig.layout, yaxis).showticklabels = True
+        return fig
+
+    # def matrixProfileGraph(self, outcol, topmotifs = 3):
+    #     self.recalculateOutlierExplanations()
+    #     # l = len(self.outlierExplanations[outcol].outlierBlocks)
+    #     return dcc.Graph(id='matrixprofile-timeseries-graph',
+    #             config = plotlyConf['config'],
+    #             style= plotlyConf['lambdastyles']['fullsize'](4, 200),
+    #             figure = self.matrixProfileFigure(outcol, topmotifs=topmotifs)
+    #         )
+
+    def scatter(self, col=None, x = None, y = None, name = None):
+        assert type(col) != type(None) or type(y) != type(None)
+        if type(x) == type(None):
+            x = self.timestamps
+        if type(y) == type(None):
+            y = self.data[castlist(col)].values.flatten()
+        return go.Scatter(
+            x = x,
+            y = y,
+            name= name if name != None else None
+        )
+
+    def matrixprofile(self, col, motiflen):
+        mp = matrixProfile.stomp(self.data[castlist(col)].values.flatten(), motiflen)
+        return self.scatter(y = mp[0], name = 'matrixprofile (len {})'.format(motiflen))
+
+    def outlierShapes(self, relCol, outCol):
+        self.recalculateOutlierExplanations()
+        blocks = self.outlierExplanations[outCol].outlierBlocks
+        def shape(x0, y0, x1, y1):
+            return go.Scatter(
+                x = [x0, x1, x1, x0, x0],
+                y = [y0, y0, y1, y1, y0],
+                fill = 'toself',
+                marker = dict(opacity = 0),
+                line = dict(color = 'rgb(255,0,0)')
+            )
+        tstmps = self.timestamps
+        relData = self.data[castlist(relCol)].values
+        xs = [
+            dict(
+                x0=tstmps[bl[0]],
+                y0=np.min(relData[slice(*bl)]),
+                x1=tstmps[bl[1]-1],
+                y1=np.max(relData[slice(*bl)])
+            ) for bl, bChar in blocks]
+        return [shape(**x) for x in xs]
+
+    # # @cache(payAttentionTo=['relevant_columns', 'column_outlier'])
+    # def matrixProfileData(self, topExplanations = 3, thresholdLime = .05, topmotifs = 3):
+    #     ret = dict()
+    #     for outcol in self.column_outlier:
+    #         curret = dict()
+    #         oe = self.outlierExplanations[outcol]
+    #         curret['outlierShapes'] = {rel: self.outlierShapes(rel, outcol) for rel in self.relevant_columns}
+
+    #         ret[outcol] = curret   
+
+    def getOutlierBlockLengths(self, outcolumn = None):
+        self.recalculateOutlierExplanations()
+        if outcolumn in [None, 'None']:
+            return 0
+        else:
+            return len(self.outlierExplanations[outcolumn].outlierBlocks) - 1
+
+    def matrixProfileGraph(self):
+        self.recalculateOutlierExplanations()
+        # l = len(self.outlierExplanations[outcol].outlierBlocks)
+        return dcc.Graph(id='matrixprofile-timeseries-graph',
+                config = plotlyConf['config'],
+                style= plotlyConf['lambdastyles']['fullsize'](3, 200),
+            )
+
+    @cache()
+    def matrixProfileFigure(self, outcol = None, blockindex = 0, topExplanations = 3, thresholdLime = .05, topmotifs = 3, traces_over_all = False):
+        self.recalculateOutlierExplanations()
+        outcol = outcol if outcol not in [None, 'None'] else self.column_outlier[0]
+        oe = self.outlierExplanations[outcol]
+        rows, cols = 3, 1
+        specs = [[dict(rowspan = 1, colspan = cols)] for row in range(rows)]
+        fig = make_subplots(rows, cols,
+            specs = specs,
+            print_grid=True,
+            shared_xaxes=True,
+            shared_yaxes=True,
+            
+        )
+        outlierShapes = self.outlierShapes(self.relevant_columns, outcol)
+        bl, bChar = oe.outlierBlocks[blockindex]
+        outlierShape = outlierShapes[blockindex]
+        currentBlockLength = bChar[1]
+        outlierShape.line.color = 'rgba(255, 0, 0, .3)'
+        outlierShape.name = 'outlier {}'.format(blockindex)
+        # outlierShape.legendgroup = 'outlier {}'.format(blockindex)
+        for relcol in self.relevant_columns:
+            scat = self.scatter(relcol, name=relcol)
+            mp = self.matrixprofile(col = relcol, motiflen = currentBlockLength)
+            scat.legendgroup = '{}'.format(relcol)
+            mp.legendgroup = '{}'.format(relcol)
+            mp.marker.color = scat.marker.color
+            fig.add_trace(scat, row = 1, col= 1)
+            fig.add_trace(mp, row = 2, col = 1)
+        fig.add_trace(outlierShape, row = 1, col = 1)
+        explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
+        explainedFeatures = explainedFeatures[1]
+        explainedFeatures = explainedFeatures[:min(len(explainedFeatures),topExplanations)]
+        df = oe.getDataframe(bChar[1])
+        for ef in explainedFeatures:
+            y = df[ef[0]]
+            scat = self.scatter(y=y)
+            scat.name = '{} ({:.3f})'.format(*ef)
+            scat.legendgroup = 'outlier {}'.format(blockindex)
+            if ef[1] <= thresholdLime:
+                scat.visible = 'legendonly'
+            fig.add_trace(scat, row = 3, col = 1)
+        for rrow in range(1, rows):
+            row = 1 + rrow
+            fig.update_xaxes(dict(title = self.xAxisTitle, matches='x{}'.format(row)), row=1, col=1)
+            fig.update_xaxes(dict(title = self.xAxisTitle, matches='x'), row=row, col=1)
+        # if traces_over_all:
+        #     fig.update_traces(xaxis="x{}".format(rows))
         return fig

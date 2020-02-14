@@ -5,10 +5,12 @@ from flask import Flask, session
 from flask_session import Session
 from datetime import timedelta
 from webapp.config import dir_sessions
+from webapp.helper import log, envValueCheck
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app.config['suppress_callback_exceptions'] = envValueCheck('suppress_callback_exceptions', "True")
 server = app.server
 
 server.config['SESSION_PERMANENT'] = True

@@ -1,29 +1,15 @@
 import numpy as np
 import pandas as pd
 import math
+import inspect as ins
+import os
 
 
-percistency = dict(persistence=True, persistence_type='session')
-plotlyConf = dict(
-    config = dict(displaylogo = False),
-    layout = dict(),
-    style = {'width': '95vw', 'height': '300px'},
-    
-)
-colorpalette = dict(
-        muted_blue = '#1f77b4',
-        safety_orange = '#ff7f0e',
-        cooked_asparagus_green = '#2ca02c',
-        brick_red = '#d62728',
-        muted_purple = '#9467bd',
-        chestnut_brown = '#8c564b',
-        raspberry_yogurt_pink = '#e377c2',
-        middle_gray = '#7f7f7f',
-        curry_yellow_green = '#bcbd22',
-        blue_teal = '#17becf' 
-    )
+def envCheck(env, alternative = None):
+    return os.environ[env] if env in os.environ else alternative
 
-colormap = lambda ind: list(colorpalette.values())[ind % len(colorpalette)]
+def envValueCheck(env, value):
+    return envCheck(env) == value
 
 def log(*args):
     import sys
@@ -85,3 +71,40 @@ def slide_time_series(toslide, column_id, column_sort, rolling_direction = 1, ma
         srld.append(subslid)
     subslid = pd.concat(srld)
     return subslid
+
+def specificKwargs(kwargs, specifics): 
+    return {key: kwargs[key] if key in kwargs else specifics[key] for key in specifics.keys() if key in kwargs or type(specifics[key]) != type(None)}
+
+def alternativeMap(arr, mapping, alternative):
+    return np.array([alternative if elem not in mapping else mapping[elem] for elem in arr])
+
+
+def inspect(Class):
+    """
+    Function to inspect classes. Gives you all attributes of given class
+    """
+    return [att[0] for att in ins.getmembers(Class, lambda a: not(ins.isroutine(a))) if not(att[0].startswith('__') and att[0].endswith('__'))]
+
+def inspectTuple(Class):
+    """
+    Function to inspect classes. Gives you all attributes and their values of given class
+    """
+    return [att for att in ins.getmembers(Class, lambda a: not(ins.isroutine(a))) if not(att[0].startswith('__') and att[0].endswith('__'))]
+
+def inspectDict(Class):
+    """
+    Function to inspect classes. Gives you all attributes and their values of given class as dictionary
+    """
+    return {att[0]: att[1] for att in inspectTuple(Class)}
+    
+def castlist(elem):
+    """
+    Casts any object into list, without making a list into ndlist
+    """
+    if type(elem) == str:
+        return [elem]
+    if type(elem) == type(None):
+        return []
+    if type(elem) == list:
+        return elem
+    return list(elem)
