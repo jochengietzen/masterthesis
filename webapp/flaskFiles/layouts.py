@@ -11,12 +11,13 @@ tab_styles = {
 }
 
 tab_style = {
-    'paddingTop': '0px'
+    'paddingTop': '0px',
+    'backgroundColor': 'rgba(0,0,0,.15)'
 }
 
 tab_selected = { **tab_style,
-    # 'backgroundColor': 'yellow'
-    'width': '40%'
+    'backgroundColor': 'white'
+    # 'width': 'calc(100% / 5)'
 }
 
 colors = {
@@ -26,6 +27,8 @@ colors = {
 
 tabs =  html.Div([
     dcc.Tabs(id="tabs", value='tab-1', children=[
+        dcc.Tab(label='Upload', value='tab-upload', style=tab_style, selected_style=tab_selected),
+        dcc.Tab(label='Settings', value='tab-settings', style=tab_style, selected_style=tab_selected),
         dcc.Tab(label='Data configuration', value='tab-1', style=tab_style, selected_style=tab_selected),
         dcc.Tab(label='Data preview', value='tab-2', style=tab_style, selected_style=tab_selected),
         dcc.Tab(label='OutlierExplanation preview', value='tab-3', style=tab_style, selected_style=tab_selected),

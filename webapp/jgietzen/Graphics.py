@@ -1,4 +1,4 @@
-from webapp.jgietzen.Data import Data
+from webapp.flaskFiles.DataHandler import existsData
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly_express as px
@@ -13,7 +13,7 @@ from webapp.config import percistency, plotlyConf,  colormap
 
 def renderTest():
     import dash_table
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if not exists:
         return []
     else:
@@ -34,7 +34,7 @@ def renderTest():
 
 
 def renderTimeseries():
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if not exists:
         return []
     else:
@@ -44,7 +44,7 @@ def renderTimeseries():
         ]
 
 def renderOutlierExplanation():
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if not exists:
         return []
     else:
@@ -58,11 +58,11 @@ def renderOutlierExplanation():
         ]
 
 def maxValueMPSlider(outcolumn = 'None'):
-    exists, data = Data.existsData()
+    exists, data = existsData()
     return data.getOutlierBlockLengths(outcolumn) if exists else 0
 
 def renderSettingsButtons(outcolumn = 'None', block = 0):
-    exists, data = Data.existsData()
+    exists, data = existsData()
     colOutlier = dcc.Dropdown(id='mp-column-outlier', value=outcolumn, style = {'minWidth': '100px'}, persistence = True)
     colOutlier.options=[{'label': 'None', 'value': 'None'}] + [
         {'label': col, 'value': col} for col in data.column_outlier
@@ -75,7 +75,7 @@ def renderSettingsButtons(outcolumn = 'None', block = 0):
     ]
 
 def renderMatrixPlot():
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if not exists:
         return []
     else:

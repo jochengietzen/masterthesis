@@ -2,42 +2,35 @@ from dash.dependencies import Input, Output
 
 from webapp.flaskFiles.applicationProvider import app, server, session
 from webapp.flaskFiles.dash_upload import getUploadHTML
-import uuid
-from datetime import timedelta
 
 import sys
 from webapp.helper import log
 from webapp.config import dir_sessions
 import json
 
-from webapp.jgietzen.Data import Data
+from webapp.flaskFiles.DataHandler import existsData
 from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlierExplanation, renderMatrixPlot, renderSettingsButtons, maxValueMPSlider
 
 
-@app.server.before_first_request
-def sessionPermanent():
-    session.permanent = True
-    server.permanent_session_lifetime = timedelta(weeks=4)
+import webapp.flaskFiles.sessionHandling
 
-@app.server.before_request
-def uid():
-    session['uid'] = '8a99f029-79d8-4ded-b2f3-262a98cb383c'
-    if 'uid' not in session:
-        log(session)
-        session['uid'] = '8a99f029-79d8-4ded-b2f3-262a98cb383c'
-        # session['uid'] = uuid.uuid4().__str__()
+tabRouting = {
+    'tab-upload': getUploadHTML,
+    'tab-settings': None,
+    'tab-1': None,
+    'tab-2': None,
+    'tab-3': None,
+    'tab-4': None,
+}
 
 @app.callback(Output('tabs-content', 'children'),
-              [Input('tabs', 'value')])
+    [Input('tabs', 'value')]
+)
 def render_tab(tab):
-    if tab == 'tab-1':
-        return getUploadHTML()
-    elif tab == 'tab-2':
-        return renderTimeseries()
-    elif tab == 'tab-3':
-        return renderOutlierExplanation()
-    elif tab == 'tab-4':
-        return renderMatrixPlot()
+    if tab in tabRouting:
+        return tabRouting[tab]() if callable(tabRouting[tab]) else tabRouting[tab]
+    else:
+        return []
 
 @app.callback(
     [Output('mp-slider-outlierblock', 'max'),
@@ -65,7 +58,7 @@ def resetSlider(col):
 def renderMPGraph(outcol, block):
     kwargs = {}
     none = [None, 'None']
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if outcol not in none:
         kwargs['outcol'] = outcol
     if block not in none:
@@ -84,7 +77,7 @@ def renderMPGraph(outcol, block):
 def renderMatrixProfileText(outcol, block):
     kwargs = {}
     none = [None, 'None']
-    exists, data = Data.existsData()
+    exists, data = existsData()
     if outcol not in none:
         kwargs['outcol'] = outcol
     if block not in none:
