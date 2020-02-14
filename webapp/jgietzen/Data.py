@@ -58,7 +58,7 @@ class Data(Cachable):
         assert column_sort != None or self._frequency != None, 'Column sort is required and cannot be None if no frequency is available'
         self._column_sort = column_sort
         self.__kwargs = kwargs
-        self.filename = valueOrAlternative(kwargs, 'filename', 'random')
+        self.filename = f"datafile_{valueOrAlternative(kwargs, 'filename', 'random')}"
         self.originalfilename = valueOrAlternative(kwargs, 'originalfilename')
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
@@ -383,7 +383,7 @@ class Data(Cachable):
 
     def save(self):
         from os.path import join
-        pkl.dump(self, open(join(dir_datafiles, f'datafile_{self.filename}'), 'wb'))
+        pkl.dump(self, open(join(dir_datafiles, self.filename), 'wb'))
     
     def delete(self):
         from os.path import join, exists
