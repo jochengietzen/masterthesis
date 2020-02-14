@@ -4,10 +4,11 @@ import io
 import sys
 
 import dash
-from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
+from dash.dependencies import Input, Output, State
+
 
 
 import pandas as pd
@@ -18,49 +19,22 @@ from webapp.jgietzen.Data import Data
 
 from webapp.helper import log
 
+# Styles
+from .styles \
+    import *
 
-
-deleteButton = html.Button('Delete data',id='delete-data')
-dropDownStyle = {
-    'minWidth': '100px'
-}
-
-# colSort = dcc.Dropdown(id='dd-column-sort', value='idx', style = dropDownStyle)
-# colSortDiv = html.Div([html.Label('Timestamp column'), colSort])
+# Components
+from .components import *
 
 def getUploadHTML():
-    # print(renderData(), file=sys.stdout)
     rd = renderData()
     return html.Div([
-                dcc.Upload(
-                    id='upload-data',
-                    children=html.Div([
-                        'Drag and Drop or ',
-                        html.A('Select Files')
-                    ]),
-                    style={
-                        'width': '100%',
-                        'height': '60px',
-                        'lineHeight': '60px',
-                        'borderWidth': '1px',
-                        'borderStyle': 'dashed',
-                        'borderRadius': '5px',
-                        'textAlign': 'center',
-                        'margin': '10px'
-                    }
-                ),
-                html.Div(deleteButton, id='delete-data-div', style={
-                    'display': 'flex',
-                    'justifyContent': 'flex-end'
-                }),
+                uploadComponent,
+                deleteButtonDiv,
                 html.Hr(),
-                html.Div(rd[1], id='settings-div', style = {
-                    # 'display': 'flex',
-                    # 'justifyContent': 'space-around'
-                    'width': '100%'
-                }),
+                html.Div(rd[1], id='settings-div', style = fullparentwidth),
                 html.Div(rd[0], id='output-data-upload'),
-                html.Div(id='hidden-div', style={'display': 'none'})
+                html.Div(id='hidden-div', style=displaynone)
             ])
 
 def parse_contents(contents, filename, date):
@@ -84,82 +58,48 @@ def parse_contents(contents, filename, date):
     return renderData()
 
 def renderSettings(data = None):
-    colIdDiv = html.Div([html.Label('Timeseries Id column')])
-    colSortDiv = html.Div([html.Label('Timestamp column')])
-    colFrequencyDiv = html.Div([html.Label('Frequency of data')], id = 'input-frequency-div')
-    colOutlierDiv = html.Div([html.Label('Outlier column')])
-    colRelevantDiv = html.Div([html.Label('Relevant columns to take a look at')])
-    saveResultsDiv = html.Div([html.Label('Show updates')], id='refresh-button')
     if type(data) == type(None):
         return [colSortDiv, colIdDiv, colOutlierDiv, colRelevantDiv]
-    saveResults = html.A('Refresh', href='/')
-    saveResultsDiv.children = saveResultsDiv.children + [saveResults]
     cols = data.raw_columns
-    colSort = dcc.Dropdown(id='dd-column-sort', value=data.column_sort, style = dropDownStyle)
+    colSort.value = data.column_sort
     colSort.options=[{'label': 'Index', 'value': data.tsTstmp},
                     *[{'label': key, 'value': key} for key in cols]]
-    colIsTimestamp = dcc.RadioItems(id='ri-is-timestamp',
-    options=[
-        dict(label='Is Timestamp in [s]', value='True'),
-        dict(label='Not a Timestamp', value='False')
-    ], value = str(data.has_timestamp_value))
-
-    colFrequency = dcc.Input(id='input-frequency',
-                            type='number',
-                            placeholder=1000,
-                            value = data.frequency_value
-                            )
-    buttonClearFrequency = html.Button('Clear Frequency', id='clear-frequency')
-    colFrequencyDiv.children = colFrequencyDiv.children + [colFrequency, buttonClearFrequency]
+    colIsTimestamp.value = str(data.has_timestamp_value)
+    colFrequency.value = data.frequency_value
     for child in colFrequencyDiv.children:
         child.style = dict(width='100%')
-    colFrequencyDiv.style = dict(
-        maxWidth = '200px',
-    )
     if data.has_timestamp:
         colFrequencyDiv.hidden = True
-
-    colSortDiv.children = colSortDiv.children + [colSort, colIsTimestamp]
-
-    colId = dcc.Dropdown(id='dd-column-id', value=data.column_id, style = dropDownStyle)
-    colId.options=[
-                    {'label': 'None', 'value': 'Null'},
+    colSortDiv.children = [colSortLabel, colSort, colIsTimestamp]
+    colId.value = data.column_id
+    colId.options=[{'label': 'None', 'value': 'Null'},
                     *[{'label': key, 'value': key} for key in cols]]
-    colIdDiv.children = colIdDiv.children + [colId]
-
-    colOutlier = dcc.Dropdown(id='dd-column-outlier', multi=True, style = dropDownStyle)
+    colIdDiv.children = [colIdLabel, colId]
     colOutlier.options=[
         {'label': key, 'value': key} for key in data.outlier_columns_available
         ]
-    colOutlierDiv.children = colOutlierDiv.children + [colOutlier]
+    colOutlierDiv.children = [colOutlierLabel, colOutlier]
     if data.has_outlier:
         colOutlier.value = data.column_outlier
-    colRelevant = dcc.Dropdown(
-        id = 'dd-columns-relevant',
-        style = dropDownStyle,
-        multi=True,
-    )  
     colRelevant.options=[
             {'label': key, 'value': key} for key in data.relevant_columns_available
         ]
     if data.has_relevant_columns:
         colRelevant.value = data.relevant_columns
-    colRelevantDiv.children = colRelevantDiv.children + [colRelevant]
+    colRelevantDiv.children = [colRelevantLabel, colRelevant]
     return html.Div([
             colIdDiv,
             colSortDiv,
             colFrequencyDiv,
             colOutlierDiv,
             colRelevantDiv,
-            # saveResultsDiv
-        ],style = dict(width='100%', display='flex', justifyContent='space-around'))
+        ],style = settingsStyle)
 
 def renderData():
-    data = Data.getCurrentFile()
+    exists, data = Data.existsData()
     settings = renderSettings(data)
-    if type(data) == type(None):
+    if not exists:
         return [[],[]]
-    
     tableData = data.dataWithOutlier
     return [
         html.Div([
@@ -173,7 +113,6 @@ def renderData():
         ]),
         settings
     ]
-
 
 
 @app.callback(
@@ -204,11 +143,9 @@ def update_output(list_of_contents, n, list_of_names, list_of_dates):
     ],
     [Input('output-data-upload', 'children')])
 def renderDeleteButton(children):
-    data = Data.getCurrentFile()
-    ##log('button update disabled to', type(data) == type(None))
-    deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(type(data) == type(None))]
-    ##log(deleteButton)
-    return [type(data) == type(None), [deleteButton], type(data) != type(None)]
+    exists, _ = Data.existsData()
+    deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(not exists)]
+    return [not exists, [deleteButton], exists]
 
 
 @app.callback( Output('input-frequency', 'value'),
@@ -216,8 +153,8 @@ def renderDeleteButton(children):
     Input('clear-frequency', 'n_clicks'),
 ])
 def clearFrequency(clear):
-    data = Data.getCurrentFile()
-    if type(data) != type(None):
+    exists, data = Data.existsData()
+    if exists:
         if clear != None and clear != 'None':
             data.set_frequency(None)
         data.save()
