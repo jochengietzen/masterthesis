@@ -2,6 +2,16 @@ from dash.dependencies import Input, Output
 
 from webapp.flaskFiles.applicationProvider import app, server, session
 from webapp.flaskFiles.dash_upload import getUploadHTML
+from webapp.flaskFiles.settings import getSettingsHTML
+
+tabRouting = {
+    'tab-upload': getUploadHTML,
+    'tab-settings': getSettingsHTML,
+    'tab-1': None,
+    'tab-2': None,
+    'tab-3': None,
+    'tab-4': None,
+}
 
 import sys
 from webapp.helper import log
@@ -14,14 +24,6 @@ from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlier
 
 import webapp.flaskFiles.sessionHandling
 
-tabRouting = {
-    'tab-upload': getUploadHTML,
-    'tab-settings': None,
-    'tab-1': None,
-    'tab-2': None,
-    'tab-3': None,
-    'tab-4': None,
-}
 
 @app.callback(Output('tabs-content', 'children'),
     [Input('tabs', 'value')]
