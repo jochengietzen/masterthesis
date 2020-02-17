@@ -216,4 +216,5 @@ def precalculate(_):
     if not exists:
         return []
     data.initOutlierExplanations(complete = True)
+    data.save()
     return []
