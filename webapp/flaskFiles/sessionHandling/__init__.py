@@ -13,3 +13,14 @@ def uid():
     if 'uid' not in session:
         log(session)
         session['uid'] = uuid.uuid4().__str__()
+
+@app.server.before_request
+def checkfile():
+    if 'file' not in session:
+        session['file'] = None
+
+def setFile(filename):
+    session['file'] = filename
+
+def getFilename():
+    return session['file']
