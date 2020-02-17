@@ -4,12 +4,13 @@ from webapp.flaskFiles.applicationProvider import app, server, session
 from webapp.flaskFiles.dash_upload import getUploadHTML
 from webapp.flaskFiles.settings import getSettingsHTML
 
+from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlierExplanation, renderMatrixPlot, renderSettingsButtons, maxValueMPSlider
 tabRouting = {
     'tab-upload': getUploadHTML,
     'tab-settings': getSettingsHTML,
     'tab-1': None,
     'tab-2': None,
-    'tab-3': None,
+    'tab-3': renderMatrixPlot,
     'tab-4': None,
 }
 
@@ -19,7 +20,6 @@ from webapp.config import dir_sessions
 import json
 
 from webapp.flaskFiles.DataHandler import existsData
-from webapp.jgietzen.Graphics import renderTimeseries, renderTest, renderOutlierExplanation, renderMatrixPlot, renderSettingsButtons, maxValueMPSlider
 
 
 import webapp.flaskFiles.sessionHandling
