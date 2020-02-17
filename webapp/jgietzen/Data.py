@@ -18,7 +18,7 @@ from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Cachable import Cachable, cache
 from webapp.jgietzen.Threading import threaded
 from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist, isNone
-from .HumanReadable import Explanation
+from .HumanReadable import Explanation, Feature
 
 
 class Data(Cachable):
@@ -69,12 +69,18 @@ class Data(Cachable):
             For now we just assume that an outlier is marked with a 1
         '''
 
-    def initOutlierExplanations(self, complete = False):
+    def initOutlierExplanations(self):
         if len(self.column_outlier) > 0:
             for col in self.column_outlier:
-                oe = self.initOutlierExplanation(col)
-                if complete:
-                    oe.makeFeatureFrames()
+                if col not in self.outlierExplanations:
+                    self.initOutlierExplanation(col)
+
+    def precalculate(self):
+        self.initOutlierExplanations()
+        for oek in self.outlierExplanations:
+            oe = self.outlierExplanations[oek]
+            log('Make featureframes for', oek)
+            oe.makeFeatureFrames()
     
     # @threaded
     def initOutlierExplanation(self, col):
@@ -260,16 +266,18 @@ class Data(Cachable):
     
     @property
     def extract_features_settings(self):
-        return dict(
-            column_id=self.column_id, column_sort=self.column_sort,
-            # column_kind=self.column_id,
-            default_fc_parameters={
+        settings = {
                 'maximum':None,
                 'minimum':None,
                 'median': None,
                 'mean': None,
                 'length': None,
                 }
+        settings = Feature.explainableFeatures()
+        return dict(
+            column_id=self.column_id, column_sort=self.column_sort,
+            # column_kind=self.column_id,
+            default_fc_parameters=settings
         )
 
     @property
@@ -318,7 +326,14 @@ class Data(Cachable):
         slid = self.slide(windowsize)
         if roll:
             slid = self.reduceSlidedToRolled(slid, windowsize)
-        extracted = tsfresh.extract_features(slid, n_jobs= 0, **self.extract_features_settings)
+        settings = self.extract_features_settings
+        defset = settings['default_fc_parameters']
+        sett = dict(f_agg='mean', lag = windowsize)
+        for k in [key for key in list(defset.keys()) if callable(defset[key])]:
+            settings['default_fc_parameters'][k] =\
+                settings['default_fc_parameters'][k](sett)
+
+        extracted = tsfresh.extract_features(slid, n_jobs= 0, **settings)
         extracted[self.column_sort] = extracted.index
         extracted[self.column_id] = 0
         extracted.reset_index(drop=True, inplace=True)
@@ -411,7 +426,7 @@ class Data(Cachable):
     '''
     Plotting with plotly functions
     '''
-    @cache()
+    # @cache()
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -583,7 +598,6 @@ class Data(Cachable):
                 figure = self.plotoutlierExplanationPieChartsFigure()
             )
     
-    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
     def plotOutlierDistributionGraph(self, shareX = True):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -591,6 +605,7 @@ class Data(Cachable):
                 figure = self.plotOutlierDistributionFigure()
             )
 
+    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
     def plotOutlierDistributionFigure(self, shareX = True):
         self.recalculateOutlierExplanations()
         rows, cols = len(self.relevant_columns), len(self.column_outlier)
