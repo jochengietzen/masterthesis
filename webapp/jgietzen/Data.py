@@ -17,7 +17,7 @@ from webapp.config import colormap, plotlyConf
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Cachable import Cachable, cache
 from webapp.jgietzen.Threading import threaded
-from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
+from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist, isNone
 from .HumanReadable import Explanation
 
 
@@ -375,6 +375,8 @@ class Data(Cachable):
     '''
     @staticmethod
     def load(filename):
+        if isNone(filename):
+            return None
         from os.path import join, exists
         file = join(dir_datafiles, filename)
         if not exists(file):
