@@ -75,6 +75,9 @@ def slide_time_series(toslide, column_id, column_sort, rolling_direction = 1, ma
 def specificKwargs(kwargs, specifics): 
     return {key: kwargs[key] if key in kwargs else specifics[key] for key in specifics.keys() if key in kwargs or type(specifics[key]) != type(None)}
 
+def alternativeKwarg(kwargs, key, alternative = None):
+    return alternative if key not in kwargs else kwargs[key]
+
 def alternativeMap(arr, mapping, alternative):
     return np.array([alternative if elem not in mapping else mapping[elem] for elem in arr])
 
