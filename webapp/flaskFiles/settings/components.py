@@ -13,19 +13,25 @@ ids = dict(
     saveButtonDiv = 'delete-data-div',
     dataChoiceDiv = 'data-choice-div',
     dataChoice = 'data-choice',
-    dataChoiceHidden = 'data-choice-hidden',
-    clearFrequency = 'clear-frequency'
+    clearFrequency = 'clear-frequency',
+    precalculateDiv = 'precalculate-div',
+    precalculateButton = 'precalculate-button',
+    precalculateLoader = 'precalculate-loader',
     )
 
 deleteButton = html.Button('Delete data', id=ids['deleteButton'])
 saveButton = html.Button('Save data', id=ids['saveButton'])
 
+precalculateButton = html.Button('Precalc', id=ids['precalculateButton'])
+precalculateLoader = dcc.Loading(id = ids['precalculateLoader'])
+precalculateDiv = html.Div([precalculateLoader, precalculateButton], id = ids['precalculateDiv'], style= precalculateDivStyle)
+
 deleteButtonDiv = html.Div(deleteButton, id=ids['deleteButtonDiv'], style=buttonDivStyle)
-saveButtonDiv = html.Div(saveButton, id=ids['saveButtonDiv'], style=buttonDivStyle)
+saveButtonDiv = html.Div([saveButton, precalculateDiv], id=ids['saveButtonDiv'], style=buttonDivStyle)
+
 
 dataChoice = dcc.Dropdown(value = None, id=ids['dataChoice'], style = {**dropDownStyle, **minwidth200})
-dataChoiceHidden = html.Div(id=ids['dataChoiceHidden'], style = displaynone)
-dataChoiceDiv = html.Div([dataChoiceHidden, dataChoice], id=ids['dataChoiceDiv'], style={**fullparentwidth, **flexcenter})
+dataChoiceDiv = html.Div(dataChoice, id=ids['dataChoiceDiv'], style={**fullparentwidth, **flexcenter})
 
 updateTriggerDivs = lambda x: [html.Div(id=f'update-trigger-{i + 1}', style=displaynone) for i in range(x)]
 updateTriggerOutput = lambda index: Output(f'update-trigger-{index}', 'children')

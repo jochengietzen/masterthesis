@@ -24,4 +24,6 @@ maxwidth200 =  {'maxWidth': '200px'}
 minwidth200 =  {'minWidth': '200px'}
 flexcenter = {'display': 'flex', 'justifyContent': 'center'}
 
+precalculateDivStyle = {'width': '200px', 'marginLeft': '100px'}
+
 settingsStyle = {'width': '100%', 'display': 'flex', 'justifyContent': 'space-around'}

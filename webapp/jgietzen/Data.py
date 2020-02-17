@@ -69,10 +69,12 @@ class Data(Cachable):
             For now we just assume that an outlier is marked with a 1
         '''
 
-    def initOutlierExplanations(self):
+    def initOutlierExplanations(self, complete = False):
         if len(self.column_outlier) > 0:
             for col in self.column_outlier:
-                self.initOutlierExplanation(col)
+                oe = self.initOutlierExplanation(col)
+                if complete:
+                    oe.makeFeatureFrames()
     
     # @threaded
     def initOutlierExplanation(self, col):
@@ -81,6 +83,7 @@ class Data(Cachable):
         outs = dat[[col]].values.flatten()
         outs = alternativeMap(outs, {1: True}, False)
         self.outlierExplanations[col] = OutlierExplanation(outs, self)
+        return self.outlierExplanations[col]
     
     def recalculateOutlierExplanations(self):
         calculated = list(self.outlierExplanations.keys())

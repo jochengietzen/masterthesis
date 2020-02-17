@@ -206,80 +206,14 @@ def deleteFile(_):
     deleteCurrentFile()
     return [[], None]
 
-# @app.callback(
-#     [
-#         Output('output-data-upload', 'children'), 
-#         Output('settings-div', 'children')
-#     ],
-#     [
-#         Input('upload-data', 'contents'),
-#         Input('delete-data', 'n_clicks'),
-#     ],
-#     [State('upload-data', 'filename'),
-#     State('upload-data', 'last_modified')])
-# def update_output(list_of_contents, n, list_of_names, list_of_dates):
-#     if n != None:
-#         deleteCurrentFile()
-#         return renderData()
-#     if list_of_contents is not None:
-#         children = parse_contents(list_of_contents, list_of_names, list_of_dates)
-#         return children
-#     return renderData()
 
-
-# @app.callback([
-#         Output('delete-data', 'disabled'), 
-#         Output('delete-data-div', 'children'),
-#         Output('upload-data', 'disabled')
-#     ],
-#     [Input('output-data-upload', 'children')])
-# def renderDeleteButton(children):
-#     exists, _ = existsData()
-#     deleteButton.style = [{'display': 'block'}, {'display': 'none'}][int(not exists)]
-#     return [not exists, [deleteButton], exists]
-
-
-# @app.callback( Output('input-frequency', 'value'),
-# [
-#     Input('clear-frequency', 'n_clicks'),
-# ])
-# def clearFrequency(clear):
-#     exists, data = existsData()
-#     if exists:
-#         if clear != None and clear != 'None':
-#             data.set_frequency(None)
-#         data.save()
-#         return data.frequency
-#     return None
-
-# @app.callback([
-#     Output('hidden-div', 'children'),
-#     Output('input-frequency-div', 'hidden')
-#     ], [
-#     Input('dd-column-sort', 'value'),
-#     Input('dd-column-id', 'value'),
-#     Input('dd-column-outlier', 'value'),
-#     Input('dd-columns-relevant', 'value'),
-#     Input('ri-is-timestamp', 'value'),
-#     Input('input-frequency', 'value'),
-# ])
-# def updateData(sort, idd, outlier, relevant_columns, isTimestamp, frequency):
-#     exists, data = existsData()
-#     if not exists:
-#         return [[], True]
-#     if sort != None and sort != 'None':
-#         data.set_column_sort(sort)
-#     if idd != None and idd != 'None':
-#         data.set_column_id(idd)
-#     if outlier != None and outlier != 'None':
-#         data.set_column_outlier(outlier)
-#     if relevant_columns != None and relevant_columns != 'None':
-#         data.set_relevant_columns(relevant_columns)
-#     if isTimestamp != None and isTimestamp != 'None':
-#         data.set_has_timestamp_value(isTimestamp)
-#     if frequency != None and frequency != 'None':
-#         if not data.has_timestamp:
-#             data.set_frequency(frequency)
-#     data.save()
-#     hidden = data.has_timestamp
-#     return [[], hidden]
+@app.callback(
+    Output(ids['precalculateLoader'], 'children'),
+    [Input(ids['precalculateButton'], 'n_clicks')]
+)
+def precalculate(_):
+    exists, data = existsData()
+    if not exists:
+        return []
+    data.initOutlierExplanations(complete = True)
+    return []
