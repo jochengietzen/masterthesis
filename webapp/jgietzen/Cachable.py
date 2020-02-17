@@ -92,6 +92,8 @@ def cache(payAttentionTo = None, ignore = None):
                 return ret
             result = func(*args, **kwargs)
             parent.insertNewResult(cachable, result)
+            if hasattr(parent, 'save') and callable(parent.save):
+                parent.save()
             return result
         return wrapper_do_function
     return _cache
