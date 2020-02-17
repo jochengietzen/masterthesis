@@ -107,4 +107,9 @@ def castlist(elem):
         return []
     if type(elem) == list:
         return elem
+    if type(elem) == int:
+        return [elem]
     return list(elem)
+
+def isNone(obj):
+    return obj in [None, 'None'] or type(obj) == type(None)
