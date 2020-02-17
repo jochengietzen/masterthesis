@@ -8,7 +8,6 @@ ids = dict(deleteButton = 'delete-data', saveButton = 'save-button',
 deleteButtonDiv = 'delete-data-div',
 saveButtonDiv = 'save-data-div',
 uploadComponent = 'upload-data',
-saveResultsDiv = 'refresh-button',
 colId = 'dd-column-id',
 colSort = 'dd-column-sort',
 colIsTimestamp = 'ri-is-timestamp',
@@ -40,8 +39,6 @@ colOutlierLabel = html.Label('Outlier column')
 colOutlierDiv = html.Div([colOutlierLabel])
 colRelevantLabel = html.Label('Relevant columns to take a look at')
 colRelevantDiv = html.Div([colRelevantLabel])
-saveResultsLabel = html.Label('Show updates')
-saveResultsDiv = html.Div([saveResultsLabel], id=ids['saveResultsDiv'])
 
 colId = dcc.Dropdown(id=ids['colId'], style = dropDownStyle)
 colSort = dcc.Dropdown(id=ids['colSort'], style = dropDownStyle)
