@@ -13,7 +13,7 @@ uploadStyle = {
     'margin': '10px 0'
 }
 
-deleteButtonDivStyle = {
+buttonDivStyle = {
     'display': 'flex',
     'justifyContent': 'flex-end'
 }
@@ -21,5 +21,7 @@ deleteButtonDivStyle = {
 fullparentwidth = {'width': '100%'}
 displaynone = {'display': 'none'}
 maxwidth200 =  {'maxWidth': '200px'}
+minwidth200 =  {'minWidth': '200px'}
+flexcenter = {'display': 'flex', 'justifyContent': 'center'}
 
 settingsStyle = {'width': '100%', 'display': 'flex', 'justifyContent': 'space-around'}
