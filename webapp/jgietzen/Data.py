@@ -751,7 +751,7 @@ class Data(Cachable):
             mp.legendgroup = '{}'.format(relcol)
             mp.marker.color = scat.marker.color
             fig.add_trace(scat, row = 1, col= 1)
-            fig.add_trace(mp, row = 2, col = 1)
+            fig.add_trace(mp, row = 3, col = 1)
         fig.add_trace(outlierShape, row = 1, col = 1)
         explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
         explainedFeatures = explainedFeatures[1]
@@ -764,8 +764,8 @@ class Data(Cachable):
             scat.legendgroup = 'outlier {}'.format(blockindex)
             if ef[1] <= thresholdLime:
                 scat.visible = 'legendonly'
-            fig.add_trace(scat, row = 3, col = 1)
-        for rrow in range(1, rows):
+            fig.add_trace(scat, row = 2, col = 1)
+        for rrow in list(reversed(range(1, rows))):
             row = 1 + rrow
             fig.update_xaxes(dict(title = self.xAxisTitle, matches='x{}'.format(row)), row=1, col=1)
             fig.update_xaxes(dict(title = self.xAxisTitle, matches='x'), row=row, col=1)
