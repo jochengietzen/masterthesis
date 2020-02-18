@@ -93,6 +93,8 @@ def cache(payAttentionTo = None, ignore = None):
             result = func(*args, **kwargs)
             parent.insertNewResult(cachable, result)
             if hasattr(parent, 'save') and callable(parent.save):
+                if parent.verbose:
+                    log(f'Saving file after {cachable}')
                 parent.save()
             return result
         return wrapper_do_function
@@ -152,12 +154,9 @@ class Cachable:
     buzbaz
 
     '''
-    internalStore={}
-    storageSize = 1000
-    verbose = False
-    alwaysCheck = None
     
-    def __init__(self, storageSizeInMB = 1000, verbose = True, alwaysCheck = None):
+    def __init__(self, internalStore={}, storageSizeInMB = 1000, verbose = True, alwaysCheck = None):
+        self.internalStore = internalStore
         self.storageSize = storageSizeInMB
         self.verbose = verbose
         self.alwaysCheck = alwaysCheck

@@ -47,7 +47,7 @@ class Data(Cachable):
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
-        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
+        super().__init__(internalStore={},alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=False)
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
         self._frequency = valueOrAlternative(kwargs, 'frequency')
