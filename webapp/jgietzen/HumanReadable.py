@@ -165,11 +165,12 @@ class Feature:
 
 from contrastive_explanation import Literal, Operator
 import operator
+from webapp.helper import isNone
 
 class Explanation:
     
     def __init__(self, literal, features, fact = None, foil = None, weight = None, complete = False):
-        assert type(literal) == Literal or (all([type(lit) == Literal for lit in literal]) and type(literal) == list), 'Only Literals are allowed. Either one Literal or a list'
+        assert type(literal) == Literal or isNone(literal) or (all([type(lit) == Literal for lit in literal]) and type(literal) == list), 'Only Literals are allowed. Either one Literal or a list'
         literal = literal if type(literal) == list else [literal]
         assert type(features) == list and all([type(feat) == str for feat in features]), 'Please provide a list of features'
         self.literal = literal
@@ -210,6 +211,8 @@ class Explanation:
         return [Feature.parseFeature(feature) if Feature.tryParse(feature) != False else feature for feature in self.__features]
     
     def explain(self, html=False):
+        if isNone(self.literal[0]):
+            return 'There was no explanation found by contrastive foil trees.'
         literals = [self.operatorcorrected[s] for s in np.argsort([l.feature for l in self.literal])]
         literals = [self.explainLiteral(literal) for literal in literals]
         literals = " and ".join(literals) if not html else "<br />and ".join(literals)
