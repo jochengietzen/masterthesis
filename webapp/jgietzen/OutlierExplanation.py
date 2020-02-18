@@ -132,7 +132,7 @@ class OutlierExplanation(Cachable):
             if bchar[1] not in self.cfoil:
                 preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
                 dm = ce.domain_mappers.DomainMapperTabular(preddf.values, feature_names=preddf.columns.values, contrast_names=self.surrogates[bchar[1]].classes_)
-                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': True}))
+                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': False}))
     
     def getOutlierBlockLengthOfInstance(self, instanceIndex, adjustedToOutlierBlock = False):
         bl, bchar = [b for b in self.consecBlocks if instanceIndex in range(*b[0])][0]
