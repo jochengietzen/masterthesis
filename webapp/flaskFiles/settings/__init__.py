@@ -211,7 +211,9 @@ def deleteFile(_):
     Output(ids['precalculateLoader'], 'children'),
     [Input(ids['precalculateButton'], 'n_clicks')]
 )
-def precalculate(_):
+def precalculate(n):
+    if isNone(n):
+        return nu
     exists, data = existsData()
     if not exists:
         return []
