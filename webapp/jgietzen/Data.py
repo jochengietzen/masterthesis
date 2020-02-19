@@ -377,6 +377,7 @@ class Data(Cachable):
             a += self.outlierExplanations[oe].explainAll(index)
         return a
 
+    @cache()
     def contrastiveExplainOutlierBlock(self, outcol = None, blockindex = 0):
         self.fitSurrogates()
         self.fitExplainers()
