@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 import numpy as np
-import pickle as pkl
+import dill as pkl
 import tsfresh
 import dash_core_components as dcc
 import dash_html_components as html
@@ -22,17 +22,7 @@ from .HumanReadable import Explanation, Feature
 
 
 class Data(Cachable):
-    __tsID = 'tsid'
-    __tsTstmp = 'tststmp'
-    __colOut = 'outlierColumns'
-    __valueOfAnOutlier = 1
-    __idIndex = None
-    __kind = 'tskind'
-    __sortCache = None
-    _frequency = None
-    featureFrames = {}
-    outlierExplanations = {}
-    slidedData = {}
+    
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
         '''
@@ -47,7 +37,18 @@ class Data(Cachable):
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
-        super().__init__(internalStore={},alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=False)
+        super().__init__(internalStore={},alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
+        self.__tsID = 'tsid'
+        self.__tsTstmp = 'tststmp'
+        self.__colOut = 'outlierColumns'
+        self.__valueOfAnOutlier = 1
+        self.__idIndex = None
+        self.__kind = 'tskind'
+        self.__sortCache = None
+        self._frequency = None
+        self.featureFrames = {}
+        self.outlierExplanations = {}
+        self.slidedData = {}
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
         self._frequency = valueOrAlternative(kwargs, 'frequency')
