@@ -4,6 +4,7 @@ abspath = os.path.abspath
 
 dir_root = abspath(os.path.join(os.path.curdir))
 dir_data = os.path.join(dir_root, 'data')
+dir_rawdata = os.path.join(dir_root, 'rawdatafiles')
 dir_datafiles = os.path.join(dir_data, 'datafiles')
 dir_sessions = os.path.join(dir_data, 'flask_session')
 

@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 import numpy as np
-import pickle as pkl
+import dill as pkl
 import tsfresh
 import dash_core_components as dcc
 import dash_html_components as html
@@ -14,26 +14,15 @@ from matrixprofile import matrixProfile
 
 from webapp.config import dir_datafiles
 from webapp.config import colormap, plotlyConf
-from webapp.flaskFiles.applicationProvider import session
 from webapp.jgietzen.OutlierExplanation import OutlierExplanation
 from webapp.jgietzen.Cachable import Cachable, cache
 from webapp.jgietzen.Threading import threaded
-from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist
-from .HumanReadable import Explanation
+from webapp.helper import valueOrAlternative, log, inspect, consecutiveDiff, slide_time_series, alternativeMap, castlist, isNone
+from .HumanReadable import Explanation, Feature
 
 
 class Data(Cachable):
-    __tsID = 'tsid'
-    __tsTstmp = 'tststmp'
-    __colOut = 'outlierColumns'
-    __valueOfAnOutlier = 1
-    __idIndex = None
-    __kind = 'tskind'
-    __sortCache = None
-    _frequency = None
-    featureFrames = {}
-    outlierExplanations = {}
-    slidedData = {}
+    
     
     def __init__(self, data, column_sort = 'idx', has_timestamp = False, **kwargs):
         '''
@@ -48,7 +37,18 @@ class Data(Cachable):
                         This will also be used to distinguish between uni- and multivariate data
             - label_column
         '''
-        super().__init__(alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
+        super().__init__(internalStore={},alwaysCheck= ['column_id', 'column_sort', 'relevant_columns', 'column_outlier'], verbose=True)
+        self.__tsID = 'tsid'
+        self.__tsTstmp = 'tststmp'
+        self.__colOut = 'outlierColumns'
+        self.__valueOfAnOutlier = 1
+        self.__idIndex = None
+        self.__kind = 'tskind'
+        self.__sortCache = None
+        self._frequency = None
+        self.featureFrames = {}
+        self.outlierExplanations = {}
+        self.slidedData = {}
         self.raw_df = data.copy()
         self.raw_columns = self.raw_df.columns.tolist()
         self._frequency = valueOrAlternative(kwargs, 'frequency')
@@ -59,7 +59,7 @@ class Data(Cachable):
         assert column_sort != None or self._frequency != None, 'Column sort is required and cannot be None if no frequency is available'
         self._column_sort = column_sort
         self.__kwargs = kwargs
-        self.filename = valueOrAlternative(kwargs, 'filename', 'random')
+        self.filename = f"datafile_{valueOrAlternative(kwargs, 'filename', 'random')}"
         self.originalfilename = valueOrAlternative(kwargs, 'originalfilename')
         self._column_outlier = valueOrAlternative(kwargs, 'column_outlier')
         self._relevantColumns = valueOrAlternative(kwargs, 'relevant_columns')
@@ -73,15 +73,32 @@ class Data(Cachable):
     def initOutlierExplanations(self):
         if len(self.column_outlier) > 0:
             for col in self.column_outlier:
-                self.initOutlierExplanation(col)
+                if col not in self.outlierExplanations:
+                    self.initOutlierExplanation(col)
+
+    def precalculate(self):
+        self.initOutlierExplanations()
+        for oek in self.outlierExplanations:
+            oe = self.outlierExplanations[oek]
+            log('Make featureframes for', oek)
+            oe.makeFeatureFrames()
     
-    # @threaded
+    def precalculatePlots(self):
+        self.initOutlierExplanations()
+        for oek in self.outlierExplanations:
+            oe = self.outlierExplanations[oek]
+            for bl, _ in enumerate(oe.outlierBlocks):
+                self.matrixProfileFigure(outcol=oek, blockindex=bl)
+                self.contrastiveExplainOutlierBlock(outcol=oek, blockindex=bl)
+
+    
     def initOutlierExplanation(self, col):
         dat = self.dataWithOutlier
         assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
         outs = dat[[col]].values.flatten()
         outs = alternativeMap(outs, {1: True}, False)
         self.outlierExplanations[col] = OutlierExplanation(outs, self)
+        return self.outlierExplanations[col]
     
     def recalculateOutlierExplanations(self):
         calculated = list(self.outlierExplanations.keys())
@@ -258,16 +275,18 @@ class Data(Cachable):
     
     @property
     def extract_features_settings(self):
-        return dict(
-            column_id=self.column_id, column_sort=self.column_sort,
-            # column_kind=self.column_id,
-            default_fc_parameters={
+        settings = {
                 'maximum':None,
                 'minimum':None,
                 'median': None,
                 'mean': None,
                 'length': None,
                 }
+        settings = Feature.explainableFeatures()
+        return dict(
+            column_id=self.column_id, column_sort=self.column_sort,
+            # column_kind=self.column_id,
+            default_fc_parameters=settings
         )
 
     @property
@@ -284,17 +303,6 @@ class Data(Cachable):
         tstmps = self.getRolledTimestamps(windowsize)
         return slided.loc[[i in tstmps for i in slided[[self.column_id]].values.flatten()], :]
 
-    def save(self):
-        from os.path import join
-        pkl.dump(self, open(join(dir_datafiles, self.filename), 'wb'))
-    
-    def delete(self):
-        from os.path import join, exists
-        from os import remove
-        file = join(dir_datafiles, self.filename)
-        if exists(file):
-            remove(file)
-        del self
 
 
 
@@ -327,7 +335,14 @@ class Data(Cachable):
         slid = self.slide(windowsize)
         if roll:
             slid = self.reduceSlidedToRolled(slid, windowsize)
-        extracted = tsfresh.extract_features(slid, n_jobs= 0, **self.extract_features_settings)
+        settings = self.extract_features_settings
+        defset = settings['default_fc_parameters']
+        sett = dict(f_agg='mean', lag = windowsize)
+        for k in [key for key in list(defset.keys()) if callable(defset[key])]:
+            settings['default_fc_parameters'][k] =\
+                settings['default_fc_parameters'][k](sett)
+
+        extracted = tsfresh.extract_features(slid, n_jobs= 0, **settings)
         extracted[self.column_sort] = extracted.index
         extracted[self.column_id] = 0
         extracted.reset_index(drop=True, inplace=True)
@@ -371,6 +386,7 @@ class Data(Cachable):
             a += self.outlierExplanations[oe].explainAll(index)
         return a
 
+    @cache()
     def contrastiveExplainOutlierBlock(self, outcol = None, blockindex = 0):
         self.fitSurrogates()
         self.fitExplainers()
@@ -382,60 +398,31 @@ class Data(Cachable):
         humanreadable = Explanation.fromContrastiveResult(exp, oe.getDataframe(bchar[1]).columns.tolist(), oe.surrogates[bchar[1]].classes_)
         return humanreadable.explain()
 
-
-
-
-
     '''
-    Save and load functions
+    Save, load and delete functions
     '''
     @staticmethod
     def load(filename):
+        if isNone(filename):
+            return None
         from os.path import join, exists
         file = join(dir_datafiles, filename)
         if not exists(file):
             return None
         return pkl.load(open(file, 'rb'))
 
-    @staticmethod
-    def getCurrentFile():
-        data = Data.load(session.get('uid'))
-        if type(data) == type(None):
-            return None
-        return data
+    def save(self):
+        from os.path import join
+        pkl.dump(self, open(join(dir_datafiles, self.filename), 'wb'))
     
-    @staticmethod
-    def existsData():
-        data = Data.getCurrentFile()
-        return data != None, data
-    
-    @staticmethod
-    def existsCurrentFile():
+    def delete(self):
         from os.path import join, exists
-        return exists(join(dir_datafiles, session.get('uid')))
+        from os import remove
+        file = join(dir_datafiles, self.filename)
+        if exists(file):
+            remove(file)
+        del self
 
-    @staticmethod
-    def saveCurrentFile(df = None, originalfilename = None, column_sort = 'idx', column_id = None, column_outlier = None):
-        data = Data.getCurrentFile()
-        if type(data) == type(None):
-            data = Data(df, column_sort=column_sort, 
-                column_id = column_id, column_outlier = column_outlier,
-                filename = session.get('uid'),
-                originalfilename = originalfilename)
-            data.save()
-        else:
-            data.bare_dataframe = df if type(df) != type(None) else data.bare_dataframe
-            data.originalfilename = df if type(originalfilename) != type(None) else data.originalfilename
-            data.column_id = column_id if column_id != None else data.column_id
-            data.column_sort = column_sort if column_sort != None else data.column_sort
-            data.column_outlier = column_outlier if column_outlier != None else data.column_outlier
-            data.save()
-    
-    @staticmethod
-    def deleteCurrentFile():
-        data = Data.getCurrentFile()
-        if type(data) != type(None):
-            data.delete()
     
 
 
@@ -449,7 +436,7 @@ class Data(Cachable):
     '''
     Plotting with plotly functions
     '''
-    @cache()
+    # @cache()
     def plotdataTimeseriesGraph(self):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -621,7 +608,6 @@ class Data(Cachable):
                 figure = self.plotoutlierExplanationPieChartsFigure()
             )
     
-    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
     def plotOutlierDistributionGraph(self, shareX = True):
         return dcc.Graph(id='timeseries-graph',
                 config = plotlyConf['config'],
@@ -629,6 +615,7 @@ class Data(Cachable):
                 figure = self.plotOutlierDistributionFigure()
             )
 
+    @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
     def plotOutlierDistributionFigure(self, shareX = True):
         self.recalculateOutlierExplanations()
         rows, cols = len(self.relevant_columns), len(self.column_outlier)
@@ -774,7 +761,7 @@ class Data(Cachable):
             mp.legendgroup = '{}'.format(relcol)
             mp.marker.color = scat.marker.color
             fig.add_trace(scat, row = 1, col= 1)
-            fig.add_trace(mp, row = 2, col = 1)
+            fig.add_trace(mp, row = 3, col = 1)
         fig.add_trace(outlierShape, row = 1, col = 1)
         explainedFeatures = oe.explainLimeInstance(instanceIndex = bl[0] + (bChar[1] // 2))
         explainedFeatures = explainedFeatures[1]
@@ -787,8 +774,8 @@ class Data(Cachable):
             scat.legendgroup = 'outlier {}'.format(blockindex)
             if ef[1] <= thresholdLime:
                 scat.visible = 'legendonly'
-            fig.add_trace(scat, row = 3, col = 1)
-        for rrow in range(1, rows):
+            fig.add_trace(scat, row = 2, col = 1)
+        for rrow in list(reversed(range(1, rows))):
             row = 1 + rrow
             fig.update_xaxes(dict(title = self.xAxisTitle, matches='x{}'.format(row)), row=1, col=1)
             fig.update_xaxes(dict(title = self.xAxisTitle, matches='x'), row=row, col=1)

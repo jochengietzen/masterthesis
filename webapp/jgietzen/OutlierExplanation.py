@@ -11,21 +11,23 @@ from webapp.helper import consecutiveDiff, log, specificKwargs
 from webapp.jgietzen.Cachable import Cachable, cache
 
 class OutlierExplanation(Cachable):
-    npmap = lambda self, mapping: np.vectorize(lambda a: mapping[a] if a in mapping else a)
-    surrogates = {}
-    lime = {}
-    shap = {}
-    cfoil = {}
-    consecBlocks = None
-    minimumOutliers = 2
     
     def __init__(self, outlier, parent):
-        super().__init__(alwaysCheck= ['outlier', 'parent'], verbose=True)
+        super().__init__(internalStore=parent.internalStore, alwaysCheck= ['outlier', 'parent'], verbose=True)
         assert all([type(o) in [bool, np.bool_] for o in outlier]), 'Please provide your outlier data as boolean list/array, where True indicates an outlier'
+        self.surrogates = {}
+        self.lime = {}
+        self.shap = {}
+        self.cfoil = {}
+        self.consecBlocks = None
+        self.minimumOutliers = 2
         self.outlier = outlier
         self.parent = parent
         self.calcStandards()
         
+    def npmap(self, mapping):
+        return np.vectorize(lambda a: mapping[a] if a in mapping else a)
+
     def calcStandards(self):
         self.calcBlocks()
         # self.makeFeatureFrames()
@@ -132,7 +134,7 @@ class OutlierExplanation(Cachable):
             if bchar[1] not in self.cfoil:
                 preddf = self.getDataframe(bchar[1], adjustedToOutlierBlock=adjustedToOutlierBlock)
                 dm = ce.domain_mappers.DomainMapperTabular(preddf.values, feature_names=preddf.columns.values, contrast_names=self.surrogates[bchar[1]].classes_)
-                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': True}))
+                self.cfoil[bchar[1]] = ce.ContrastiveExplanation(dm, **specificKwargs(kwargs, {'verbose': False}))
     
     def getOutlierBlockLengthOfInstance(self, instanceIndex, adjustedToOutlierBlock = False):
         bl, bchar = [b for b in self.consecBlocks if instanceIndex in range(*b[0])][0]
