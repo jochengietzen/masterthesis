@@ -83,7 +83,15 @@ class Data(Cachable):
             log('Make featureframes for', oek)
             oe.makeFeatureFrames()
     
-    # @threaded
+    def precalculatePlots(self):
+        self.initOutlierExplanations()
+        for oek in self.outlierExplanations:
+            oe = self.outlierExplanations[oek]
+            for bl, _ in enumerate(oe.outlierBlocks):
+                self.matrixProfileFigure(outcol=oek, blockindex=bl)
+                self.contrastiveExplainOutlierBlock(outcol=oek, blockindex=bl)
+
+    
     def initOutlierExplanation(self, col):
         dat = self.dataWithOutlier
         assert col in dat.columns.tolist(), 'Column {col} not available'.format(col=col)
