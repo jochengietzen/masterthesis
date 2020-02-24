@@ -16,12 +16,14 @@ def getExplanationHTML():
         {'label': col, 'value': col} for col in data.column_outlier
     ] if exists else []
     colOutlier.value = 'None'
-    return [*updateTriggerDivs(updateTriggers), colOutlier, sliderOutlierblockDiv, matrixprofileGraph, explanationDiv]
+    fileOpened.children = f'{data.originalfilename}' if exists else []
+    return [*updateTriggerDivs(updateTriggers), fileOpened, colOutlier, sliderOutlierblockDiv, matrixprofileGraph, explanationDiv]
 
 @app.callback(
     [
         Output(ids['matrixprofileGraph'], 'figure'),
-        Output(ids['explanationDiv'], 'children')
+        Output(ids['explanationDiv'], 'children'),
+        Output(ids['fileOpened'], 'children')
     ],
     updateTriggerInput([i+1 for i in range(updateTriggers)]),
     [State(ids['colOutlier'], 'value'), State(ids['sliderOutlierblock'], 'value')])
@@ -29,7 +31,7 @@ def updateMatrixProfile(*args):
     outcol = args[-2]
     blockindex = args[-1]
     if isNone(outcol):
-        return [go.Figure(), []]
+        return [go.Figure(), [], []]
     exists, data = existsData()
     kwargs = {}
     if not isNone(outcol):
@@ -37,8 +39,9 @@ def updateMatrixProfile(*args):
     if not isNone(blockindex):
         kwargs['blockindex'] = blockindex
     exists, data = existsData()
+    fo = f'{data.originalfilename}' if exists else []
     if exists:
-        return [data.matrixProfileFigure(**kwargs), data.contrastiveExplainOutlierBlock(**kwargs)]
+        return [data.matrixProfileFigure(**kwargs), data.contrastiveExplainOutlierBlock(**kwargs), fo]
 
 @app.callback(
     [

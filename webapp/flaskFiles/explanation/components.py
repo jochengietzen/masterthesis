@@ -10,6 +10,7 @@ ids = dict(
     sliderOutlierblock = 'mp-slider-outlierblock',
     explanationText = 'mp-contrastive-explanation-div',
     explanationDiv = 'mp-contrastive-explanation-text',
+    fileOpened = 'file-opened-heading'
     )
 
 updateTriggerDivs = lambda x: [html.Div(id=f'update-explanation-trigger-{i + 1}', style=displaynone) for i in range(x)]
@@ -18,13 +19,15 @@ updateTriggerInput = lambda indexes: [Input(f'update-explanation-trigger-{i}', '
 
 matrixprofileGraph = dcc.Loading(dcc.Graph(id=ids['matrixprofileGraph'],
                 config = plotlyConf['config'],
-                style= plotlyConf['lambdastyles']['fullsize'](3, 200),
+                style= plotlyConf['lambdastyles']['fullsize'](3, 180),
             ))
 explanationDiv = dcc.Loading(html.Div(
                 html.Div(id=ids['explanationText']),
                 id=ids['explanationDiv'],
                 style=explanationDivStyle
             ))
+
+fileOpened = html.H5(id=ids['fileOpened'], style=fileOpenedStyle)
 
 
 colOutlier = dcc.Dropdown(id=ids['colOutlier'], value='None', style = {'minWidth': '100px'}, persistence = True)
