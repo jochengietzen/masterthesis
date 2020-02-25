@@ -30,7 +30,7 @@ deleteButtonDiv = html.Div(deleteButton, id=ids['deleteButtonDiv'], style=button
 saveButtonDiv = html.Div([saveButton, precalculateDiv], id=ids['saveButtonDiv'], style=buttonDivStyle)
 
 
-dataChoice = dcc.Dropdown(value = None, id=ids['dataChoice'], style = {**dropDownStyle, **minwidth200})
+dataChoice = dcc.Dropdown(value = None, id=ids['dataChoice'], style = {**dropDownStyle, **minwidth400})
 dataChoiceDiv = html.Div(dataChoice, id=ids['dataChoiceDiv'], style={**fullparentwidth, **flexcenter})
 
 updateTriggerDivs = lambda x: [html.Div(id=f'update-trigger-{i + 1}', style=displaynone) for i in range(x)]

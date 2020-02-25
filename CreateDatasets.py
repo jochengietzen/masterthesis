@@ -17,6 +17,28 @@ def readArtificialFiles(path=artificialData):
         log('Reading', fil)
         df = pd.read_csv(fil)
         data = Data(df, column_sort='idx',
+            filename = re.sub('.csv', '', os.path.basename(fil)) + '_signalChange',
+            originalfilename = re.sub('.csv', '_signalChange.csv', os.path.basename(fil)))
+        log('Set columns for', fil)
+        data.set_column_sort('time')
+        data.set_has_timestamp_value(True)
+        if 'yclean-signalChange' in df.columns.tolist():
+            data.set_relevant_columns(['yclean-signalChange'])
+            data.set_column_outlier(['outlierclean'])
+            # yclean-noise': y, 'yclean-signalChange' : y2, 'outlierclean': out,
+            #    'ynoisy-noise': yNoisy, 'ynoisy-signalChange' : y2Noisy, 'outliernoisy': outNois
+        else:
+            data.set_relevant_columns(['ynoisy-signalChange'])
+            data.set_column_outlier(['outliernoisy'])
+        data.save()
+        log('Precalculate1', fil)
+        data.precalculate()
+        data.precalculatePlots()
+        data.save()
+        log('Done1')
+        if np.any([file2.endswith(re.sub('.csv', '', os.path.basename(fil))) for file2 in os.listdir(dir_datafiles)]):
+            continue
+        data = Data(df, column_sort='idx',
             filename = re.sub('.csv', '', os.path.basename(fil)),
             originalfilename = os.path.basename(fil))
         log('Set columns for', fil)
@@ -31,11 +53,11 @@ def readArtificialFiles(path=artificialData):
             data.set_relevant_columns(['ynoisy-noise'])
             data.set_column_outlier(['outliernoisy'])
         data.save()
-        log('Precalculate', fil)
+        log('Precalculate2', fil)
         data.precalculate()
         data.precalculatePlots()
         data.save()
-        log('Done')
+        log('Done2')
     return data
 
 def readUcrAndRealworld(path=ucrAndRealworldData):
@@ -60,4 +82,5 @@ def readUcrAndRealworld(path=ucrAndRealworldData):
         data.save()
         log('Done')
 
-readUcrAndRealworld()
+# readUcrAndRealworld()
+readArtificialFiles()
