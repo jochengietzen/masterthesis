@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import dill as pkl
 import tsfresh
-import dash_core_components as dcc
-import dash_html_components as html
 import plotly_express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -436,14 +434,6 @@ class Data(Cachable):
     '''
     Plotting with plotly functions
     '''
-    # @cache()
-    def plotdataTimeseriesGraph(self):
-        return dcc.Graph(id='timeseries-graph',
-                config = plotlyConf['config'],
-                style= plotlyConf['styles']['fullsize'],
-                figure = self.plotdataTimeseriesOutlierGraph()
-                # figure = self.plotdataTimeseriesFigure()
-            )
     
     # @cache()
     def plotdataTimeseriesOutlierGraph(self):
@@ -600,21 +590,6 @@ class Data(Cachable):
             ))
         return fig
         
-    @cache(payAttentionTo=['column_outlier'], ignore =['column_id', 'column_sort'] )
-    def plotoutlierExplanationPieChartsGraph(self):
-        return dcc.Graph(id='timeseries-graph',
-                config = plotlyConf['config'],
-                style= plotlyConf['styles']['smallCorner'],
-                figure = self.plotoutlierExplanationPieChartsFigure()
-            )
-    
-    def plotOutlierDistributionGraph(self, shareX = True):
-        return dcc.Graph(id='timeseries-graph',
-                config = plotlyConf['config'],
-                style= plotlyConf['styles']['supersize'],
-                figure = self.plotOutlierDistributionFigure()
-            )
-
     @cache(payAttentionTo=['column_outlier', 'relevant_columns'], ignore =['column_id', 'column_sort'] )
     def plotOutlierDistributionFigure(self, shareX = True):
         self.recalculateOutlierExplanations()
@@ -661,14 +636,6 @@ class Data(Cachable):
             getattr(fig.layout, yaxis).showticklabels = True
         return fig
 
-    # def matrixProfileGraph(self, outcol, topmotifs = 3):
-    #     self.recalculateOutlierExplanations()
-    #     # l = len(self.outlierExplanations[outcol].outlierBlocks)
-    #     return dcc.Graph(id='matrixprofile-timeseries-graph',
-    #             config = plotlyConf['config'],
-    #             style= plotlyConf['lambdastyles']['fullsize'](4, 200),
-    #             figure = self.matrixProfileFigure(outcol, topmotifs=topmotifs)
-    #         )
 
     def scatter(self, col=None, x = None, y = None, name = None):
         assert type(col) != type(None) or type(y) != type(None)
@@ -724,14 +691,6 @@ class Data(Cachable):
             return 0
         else:
             return len(self.outlierExplanations[outcolumn].outlierBlocks) - 1
-
-    def matrixProfileGraph(self):
-        self.recalculateOutlierExplanations()
-        # l = len(self.outlierExplanations[outcol].outlierBlocks)
-        return dcc.Graph(id='matrixprofile-timeseries-graph',
-                config = plotlyConf['config'],
-                style= plotlyConf['lambdastyles']['fullsize'](3, 200),
-            )
 
     @cache()
     def matrixProfileFigure(self, outcol = None, blockindex = 0, topExplanations = 3, thresholdLime = .05, topmotifs = 3, traces_over_all = False):
