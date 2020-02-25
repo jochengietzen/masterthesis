@@ -6,3 +6,4 @@ data/
 __basecomment.py
 PickleTest.py
 notebook
+.ipynb_checkpoints/
